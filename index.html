@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Startup &amp; SME Valuator</title>
+<meta name="description" content="Value an early-stage startup, a tech startup or a small business with 2026 deal multiples.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <div class="brand">
+      <p class="eyebrow">Valuation desk · market data to October 2026</p>
+      <h1>Startup &amp; SME Valuator</h1>
+      <p class="lede">See what a business could sell or raise for, priced with 2026 deal multiples from BizBuySell, Pepperdine, Software Equity Group, Carta and PitchBook.</p>
+    </div>
+    <div class="currency">
+      <label for="currency">Currency</label>
+      <select id="currency"></select>
+      <label for="fx">1 USD =</label>
+      <input id="fx" inputmode="decimal" autocomplete="off" aria-describedby="fx-help">
+      <span id="fx-help" class="visually-hidden">Exchange rate used to place your figures in US size bands and to convert startup benchmarks.</span>
+    </div>
+  </div>
+  <nav class="wrap tabs" role="tablist" aria-label="Valuators">
+    <button class="tab" role="tab" id="tab-startup" aria-controls="panel-startup" aria-selected="true"><span class="tab-kicker">Pre-revenue</span>Early-stage startup</button>
+    <button class="tab" role="tab" id="tab-tech" aria-controls="panel-tech" aria-selected="false" tabindex="-1"><span class="tab-kicker">SaaS · AI · apps</span>Tech startup</button>
+    <button class="tab" role="tab" id="tab-sme" aria-controls="panel-sme" aria-selected="false" tabindex="-1"><span class="tab-kicker">Main Street to mid-market</span>Small &amp; medium business</button>
+    <button class="tab" role="tab" id="tab-data" aria-controls="panel-data" aria-selected="false" tabindex="-1"><span class="tab-kicker">Sources</span>Market data</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <section class="desk" id="panel-startup" role="tabpanel" aria-labelledby="tab-startup">
+    <div class="panel-intro">
+      <h2>Early-stage startup</h2>
+      <p>For companies before meaningful revenue. Four standard angel and VC methods, anchored on what comparable startups raised at in 2026.</p>
+    </div>
+    <form class="inputs" id="form-startup" novalidate></form>
+    <aside class="sheet" id="sheet-startup" aria-live="polite" aria-label="Startup valuation"></aside>
+  </section>
+
+  <section class="desk" id="panel-tech" role="tabpanel" aria-labelledby="tab-tech" hidden>
+    <div class="panel-intro">
+      <h2>Tech startup</h2>
+      <p>For software, AI, marketplace and other tech companies with revenue. Priced on 2026 private M&amp;A multiples, adjusted for growth, retention, margins and scale.</p>
+    </div>
+    <form class="inputs" id="form-tech" novalidate></form>
+    <aside class="sheet" id="sheet-tech" aria-live="polite" aria-label="Tech startup valuation"></aside>
+  </section>
+
+  <section class="desk" id="panel-sme" role="tabpanel" aria-labelledby="tab-sme" hidden>
+    <div class="panel-intro">
+      <h2>Small &amp; medium business</h2>
+      <p>For established businesses: shops, trades, restaurants, services, manufacturers. Priced the way brokers and buyers price them, on owner earnings or EBITDA.</p>
+    </div>
+    <form class="inputs" id="form-sme" novalidate></form>
+    <aside class="sheet" id="sheet-sme" aria-live="polite" aria-label="Business valuation"></aside>
+  </section>
+
+  <section id="panel-data" role="tabpanel" aria-labelledby="tab-data" hidden>
+    <div class="data-grid" id="data-root"></div>
+  </section>
+</main>
+
+<div class="mobile-total" id="mobile-total" hidden></div>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>Estimates for planning only, not a formal appraisal or financial advice. Benchmarks are mostly US data, compiled October 2026 from published reports and their summaries; see Market data for every source. Have a qualified valuer or broker review any figure before you sign.</p>
+  </div>
+</footer>
+
+<script src="src/benchmarks.js"></script>
+<script src="src/valuation.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
