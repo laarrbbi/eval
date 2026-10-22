@@ -64,7 +64,11 @@
     },
     seg2Q26: {
       name: 'Software Equity Group, 2Q26 SaaS M&A and Public Market Report',
-      url: 'https://softwareequity.com/research/quarterly-saas-report',
+      url: 'https://sandhill.com/wp-content/uploads/2026/08/SEG-Research-2Q26-SaaS-MA-and-Public-Market-Report.pdf',
+    },
+    ukSme: {
+      name: 'BusinessValuation.co.uk, UK SME valuation multiples by sector (H2 2026)',
+      url: 'https://www.businessvaluation.co.uk/uk-sme-valuation-multiples-guide',
     },
     saasCapital: {
       name: 'SaaS Capital private SaaS valuations 2025 (via Eqvista)',
@@ -90,9 +94,21 @@
       name: 'Carta, SAFE valuation caps Q2 2026',
       url: 'https://carta.com/data/safe-valuation-caps-q2-2026/',
     },
+    cartaPreSeed2025: {
+      name: 'Carta, State of Pre-Seed: 2025 in review',
+      url: 'https://carta.com/data/state-of-pre-seed-2025/',
+    },
+    cartaBenchmarks2026: {
+      name: 'Carta, VC fundraising benchmarks Q2 2026',
+      url: 'https://carta.com/data/linkedin-vc-fundraising-benchmarks-2026/',
+    },
+    cartaSeedSaas: {
+      name: 'Carta, seed-stage software valuations by city (Q1 2026)',
+      url: 'https://carta.com/data/seed-valuations-saas-sf-nyc/',
+    },
     cartaSeed: {
-      name: 'Carta seed data 2025 to 2026 (via Value Add VC and SaaStr)',
-      url: 'https://valueaddvc.com/blog/seed-round-statistics-2025-median-check-size-post-money-valuation-and-conversion-to-series-a',
+      name: 'Carta, State of Private Markets Q1 2025',
+      url: 'https://carta.com/data/state-of-private-markets-q1-2025/',
     },
     seriesA: {
       name: 'Series A benchmarks 2026, Carta and PitchBook-NVCA (via WaveUp)',
@@ -297,6 +313,27 @@
   // Combined driver adjustment is capped so a multiple never moves by more than this.
   const SME_DRIVER_LIMITS = { min: -0.5, max: 0.4 };
 
+  // UK sector ranges on adjusted EBITDA (owner pay normalised to a market salary),
+  // split at £1m adjusted EBITDA. Advisory guidance, not deal data (ukSme source).
+  // Keys match SME_INDUSTRIES; industries without a close UK sector are left out.
+  const UK_SME_BANDS = {
+    manufacturing: { sector: 'Engineering and precision manufacturing', small: [3.5, 5.5], large: [4.5, 6.5] },
+    wholesale: { sector: 'Distribution and wholesale', small: [3.0, 5.0], large: [4.0, 6.0] },
+    transport: { sector: 'Transport and haulage', small: [2.5, 4.5], large: [3.5, 5.5] },
+    moving: { sector: 'Transport and haulage', small: [2.5, 4.5], large: [3.5, 5.5] },
+    construction: { sector: 'Construction and trades', small: [2.5, 4.5], large: [3.5, 5.5] },
+    services: { sector: 'Facilities management and cleaning', small: [3.0, 5.0], large: [4.0, 6.0] },
+    itServices: { sector: 'IT services and MSPs', small: [4.0, 6.5], large: [5.0, 8.0] },
+    health: { sector: 'Care and healthcare services', small: [4.0, 6.0], large: [5.0, 8.0] },
+    insurance: { sector: 'Professional services', small: [3.5, 5.5], large: [4.5, 7.0] },
+  };
+  // Band blend between these adjusted-EBITDA levels (GBP).
+  const UK_BAND_SPLIT = [750000, 1250000];
+  const SME_MARKETS = [
+    { key: 'us', label: 'United States' },
+    { key: 'uk', label: 'United Kingdom' },
+  ];
+
   /* ------------------------------------------------------------------ */
   /* Rates                                                               */
   /* ------------------------------------------------------------------ */
@@ -383,7 +420,8 @@
     saasCapitalBootstrapped: 4.8, // ARR multiple, 2025
     saasCapitalEquityBacked: 5.3,
     aventisQ1_2026: 3.1,
-    publicSaasAug2026: 4.6,
+    publicSeg2Q26: 3.2, // SEG SaaS Index median EV / revenue, 2Q26 (5.7x a year earlier)
+    publicSaasAug2026: 4.6, // secondary source
     publicNrrAbove120: 11.7,
     publicNrrBelow100: 4.1,
     publicNrrMedian: 5.6,
@@ -405,27 +443,41 @@
     { key: 'seriesB', label: 'Series B or later', targetIrr: 0.30, dilution: 0.12 },
   ];
 
-  // Median pre-money valuations for reference (USD unless noted).
+  // Round valuations for reference (USD unless noted). "Implied" pre-money =
+  // Carta's median post-money less its median round size.
   const ROUND_MEDIANS = [
-    { stage: 'Pre-seed (SAFE cap, rounds under $1M)', value: 10000000, currency: 'USD', source: 'cartaSafe' },
-    { stage: 'Pre-seed (SAFE cap, $1M to $2.5M rounds)', value: 15000000, currency: 'USD', source: 'cartaSafe' },
-    { stage: 'Seed pre-money (Carta, 2025)', value: 16000000, currency: 'USD', source: 'cartaSeed' },
-    { stage: 'Seed post-money (Carta, Q2 2026)', value: 23900000, currency: 'USD', source: 'cartaSeed' },
-    { stage: 'Series A pre-money (Carta, 2025)', value: 49300000, currency: 'USD', source: 'seriesA' },
+    { stage: 'Pre-seed SAFE cap, $250K–$1M rounds (2025)', value: 10000000, currency: 'USD', source: 'cartaPreSeed2025' },
+    { stage: 'Pre-seed SAFE cap, $1M–$2.5M rounds (2025)', value: 15000000, currency: 'USD', source: 'cartaPreSeed2025' },
+    { stage: 'SAFE cap, rounds over $2.5M (Q2 2026, +40% YoY)', value: 35000000, currency: 'USD', source: 'cartaSafe' },
+    { stage: 'Seed post-money (Q2 2026, $4.5M raised)', value: 23900000, currency: 'USD', source: 'cartaBenchmarks2026' },
+    { stage: 'Seed pre-money, implied (Q2 2026)', value: 19400000, currency: 'USD', source: 'cartaBenchmarks2026' },
+    { stage: 'Seed pre-money, software, US outside SF and NYC (Q1 2026)', value: 12700000, currency: 'USD', source: 'cartaSeedSaas' },
+    { stage: 'Seed pre-money, software, Bay Area (Q1 2026)', value: 33300000, currency: 'USD', source: 'cartaSeedSaas' },
+    { stage: 'Series A post-money (Q2 2026, $14.7M raised)', value: 76300000, currency: 'USD', source: 'cartaBenchmarks2026' },
+    { stage: 'Series A pre-money, implied (Q2 2026)', value: 61600000, currency: 'USD', source: 'cartaBenchmarks2026' },
     { stage: 'Series A pre-money (PitchBook-NVCA, Q1 2026)', value: 62000000, currency: 'USD', source: 'seriesA' },
+    { stage: 'Series B post-money (Q2 2026)', value: 166200000, currency: 'USD', source: 'cartaBenchmarks2026' },
     { stage: 'Europe pre-seed and seed (PitchBook, Q2 2026)', value: 4800000, currency: 'EUR', source: 'pitchbookEurope' },
     { stage: 'UK and Ireland pre-seed and seed (PitchBook, Q2 2026)', value: 4600000, currency: 'EUR', source: 'pitchbookEurope' },
   ];
+
+  // Pre-money medians used as references for funding rounds in the tech valuator.
+  const STAGE_PREMONEY = {
+    preseed: { value: 10000000, label: 'Carta pre-seed SAFE cap (2025)' },
+    seed: { value: 19400000, label: 'Carta seed median, implied (Q2 2026)' },
+    seriesA: { value: 61600000, label: 'Carta Series A median, implied (Q2 2026)' },
+  };
 
   /* ------------------------------------------------------------------ */
   /* Early-stage startups                                                */
   /* ------------------------------------------------------------------ */
 
   // Market baseline = median pre-money of comparable funded startups.
-  // Europe and UK publish pre-seed and seed together; pre-seed is scaled by
-  // the US pre-seed/seed ratio (10/16).
+  // Where a source gives only one stage, the other is scaled by Carta's 2025
+  // pre-seed/seed ratio ($10M SAFE cap / $16M seed pre-money = 0.625).
   const STARTUP_MARKETS = [
-    { key: 'usVc', label: 'US, venture-backed', currency: 'USD', preseed: 10000000, seed: 16000000, source: 'cartaSeed' },
+    { key: 'usVc', label: 'US, venture-backed', currency: 'USD', preseed: 10000000, seed: 19400000, source: 'cartaBenchmarks2026' },
+    { key: 'usOther', label: 'US outside SF and NYC, software', currency: 'USD', preseed: 7900000, seed: 12700000, source: 'cartaSeedSaas' },
     { key: 'euVc', label: 'Europe, venture-backed', currency: 'EUR', preseed: 3000000, seed: 4800000, source: 'pitchbookEurope' },
     { key: 'ukVc', label: 'UK and Ireland, venture-backed', currency: 'EUR', preseed: 2875000, seed: 4600000, source: 'pitchbookEurope' },
     { key: 'angel', label: 'Angel or friends-and-family round', currency: 'USD', preseed: 1500000, seed: 2000000, source: 'scorecard' },
@@ -522,6 +574,9 @@
     SME_MARKET,
     SME_DRIVERS,
     SME_DRIVER_LIMITS,
+    UK_SME_BANDS,
+    UK_BAND_SPLIT,
+    SME_MARKETS,
     RATES,
     SIZE_PREMIUM_CURVE,
     GROWTH_CURVE,
@@ -531,6 +586,7 @@
     TECH_MARKET,
     VC_STAGES,
     ROUND_MEDIANS,
+    STAGE_PREMONEY,
     STARTUP_MARKETS,
     SCORECARD_FACTORS,
     SCORECARD_SCALE,

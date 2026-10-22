@@ -205,6 +205,11 @@
             options: B.SME_INDUSTRIES.map((i) => ({ value: i.key, label: `${i.label} · ${i.sde.toFixed(2)}x SDE` })),
             default: 'services',
           },
+          {
+            id: 'sm-market', kind: 'select', label: 'Where the business is',
+            options: B.SME_MARKETS.map((m) => ({ value: m.key, label: m.label })), default: 'us',
+            help: 'United Kingdom adds published UK sector ranges on adjusted EBITDA.',
+          },
         ],
       },
       {
@@ -240,7 +245,7 @@
       },
       {
         id: 'sm-assumptions', title: 'Rates and financing', collapsible: true, open: false,
-        hint: 'October 2026 defaults: 20-year Treasury about 5.4%, Kroll equity risk premium 5.0%, prime 7.00%. Change them for your market.',
+        hint: 'US defaults for October 2026: 20-year Treasury about 5.4%, Kroll equity risk premium 5.0%, prime 7.00% plus the SBA spread. Outside the US, enter your local long-term government bond yield and your lender’s rate.',
         fields: [
           { id: 'sm-rf', kind: 'percent', label: 'Risk-free rate', default: B.RATES.riskFree * 100 },
           { id: 'sm-erp', kind: 'percent', label: 'Equity risk premium', default: B.RATES.equityRiskPremium * 100 },
@@ -473,6 +478,9 @@
       state.currency = sel.value;
       state.fx = cur().perUsd;
       $('#fx').value = String(state.fx);
+      // Pounds usually means a UK business, dollars a US one.
+      if (state.currency === 'GBP') setValue({ id: 'sm-market', kind: 'select' }, 'uk');
+      if (state.currency === 'USD') setValue({ id: 'sm-market', kind: 'select' }, 'us');
       onCurrencyChange();
     });
     $('#fx').addEventListener('input', () => {
@@ -604,8 +612,8 @@
           { label: 'Investors get', value: pct(raise / post, 1), note: 'of the company' },
           { label: 'Implied multiple', value: `${trim(r.impliedMultiple, 1)}x`, note: 'pre-money / ARR' },
         );
-        const median = { preseed: [10000000, 'Carta median SAFE cap'], seed: [16000000, 'Carta seed median'], seriesA: [49300000, 'Carta Series A median'] }[v['tc-stage']];
-        if (median) refs.push({ label: `${median[1]} (pre-money)`, value: convert(median[0], 'USD') });
+        const median = B.STAGE_PREMONEY[v['tc-stage']];
+        if (median) refs.push({ label: median.label, value: convert(median.value, 'USD') });
       } else {
         kpis.push(
           { label: 'Implied multiple', value: `${trim(r.impliedMultiple, 1)}x`, note: 'value / revenue' },
@@ -658,10 +666,14 @@
       sbaYears: v['sm-term'],
       dscr: v['sm-dscr'],
       downPayment: v['sm-down'],
+      market: v['sm-market'],
       fxPerUsd: state.fx,
+      gbpPerUsd: rateOf('GBP'),
     });
     state.results.sme = r;
 
+    const ukBand = B.UK_SME_BANDS[r.industry.key];
+    setMeta('sm-business', r.market === 'uk' ? (ukBand ? `UK sector: ${ukBand.sector}` : 'no UK sector range') : '');
     setMeta('sm-earnings', `SDE ${money(r.sde)} · EBITDA ${money(r.ebitda)}`);
     setMeta('sm-drivers', `${r.driverAdj >= 0 ? '+' : '−'}${Math.round(Math.abs(r.driverAdj) * 100)}% on the multiple`);
 
@@ -674,7 +686,9 @@
         const overLoan = r.mid > r.financeable * 1.05;
         kpis.push({
           label: 'Bank-financeable price', value: money(r.financeable),
-          note: overLoan ? 'below your estimate: expect a seller note' : `${trim(v['sm-sba'] || 10, 2)}% loan, ${trim(v['sm-down'] || 10, 1)}% down`,
+          note: overLoan
+            ? 'below your estimate: expect a seller note'
+            : r.market === 'uk' ? 'set your lender’s terms under Rates and financing' : `${trim(v['sm-sba'] || 10, 2)}% loan, ${trim(v['sm-down'] || 10, 1)}% down`,
           warn: overLoan,
         });
         refs.push({ label: 'Bank-financeable price', value: r.financeable });
@@ -832,20 +846,35 @@
       ], [1]));
 
     const tech = section('Software and tech multiples',
-      'Private software sells at a steep discount to the headlines. Most 2026 deals closed under 5x revenue; growth and retention decide where a company lands.',
+      'Most 2026 software sales closed under 5x revenue, and in 2Q26 private deals (4.0x) priced above the public SaaS index (3.2x). Private prices usually follow public ones six to twelve months later, so sellers may face softer multiples into 2027.',
       table(['Benchmark', 'Multiple', 'Source'], [
-        ['Private SaaS M&A, median EV / revenue (2Q26)', `${T.segPrivateMedian.toFixed(1)}x`, sourceLink('seg2Q26')],
+        ['Private SaaS M&A, median EV / revenue (2Q26; 4.2x in 1Q26)', `${T.segPrivateMedian.toFixed(1)}x`, sourceLink('seg2Q26')],
         ['Private SaaS M&A, average (2Q26)', `${T.segPrivateAverage}x`, sourceLink('seg2Q26')],
+        ['Public SaaS index, median EV / revenue (2Q26; 5.7x a year earlier)', `${T.publicSeg2Q26.toFixed(1)}x`, sourceLink('seg2Q26')],
         ['Private SaaS, bootstrapped (2025)', `${T.saasCapitalBootstrapped}x ARR`, sourceLink('saasCapital')],
         ['Private SaaS, equity-backed (2025)', `${T.saasCapitalEquityBacked}x ARR`, sourceLink('saasCapital')],
         ['Smaller SaaS deals, median (Q1 2026)', `${T.aventisQ1_2026}x`, sourceLink('aventis')],
-        ['Public SaaS, late August 2026', `${T.publicSaasAug2026}x`, sourceLink('saasCapital')],
+        ['Public SaaS, late August 2026 (secondary source)', `${T.publicSaasAug2026}x`, sourceLink('saasCapital')],
         ['Public SaaS with net retention above 120%', `${T.publicNrrAbove120}x`, sourceLink('seg2Q26')],
         ['Public SaaS with net retention below 100%', `${T.publicNrrBelow100}x`, sourceLink('seg2Q26')],
         ['Growth 15–30% / 30–50% / 50–80% / 80%+', '3.5–5.5x / 5–7.5x / 7–10x / 9–14x', sourceLink('saasBands')],
         ['SaaS under $1M ARR, on owner earnings', '2.5–4x SDE', sourceLink('feIntl')],
         ['AI companies, median revenue multiple (funding rounds)', `${T.aiMedianRevenueMultiple}x`, sourceLink('aiMultiples')],
       ], [1]));
+
+    const ukBands = new Map();
+    for (const [key, b] of Object.entries(B.UK_SME_BANDS)) {
+      const ind = B.SME_INDUSTRIES.find((i) => i.key === key);
+      const row = ukBands.get(b.sector) || { sector: b.sector, small: b.small, large: b.large, ours: [] };
+      row.ours.push(ind ? ind.label : key);
+      ukBands.set(b.sector, row);
+    }
+    const uk = section('UK small business ranges',
+      'Indicative ranges on adjusted EBITDA (profit with owner pay reset to a market salary) from a UK valuation adviser, H2 2026. They are professional judgement rather than deal data. In the valuator, your value-driver answers set where you sit inside the range.',
+      table(['UK sector', 'Under £1m EBITDA', '£1m and over', 'Used for', 'Source'],
+        [...ukBands.values()].map((b) => [
+          b.sector, `${b.small[0]}–${b.small[1]}x`, `${b.large[0]}–${b.large[1]}x`, b.ours.join(', '), sourceLink('ukSme'),
+        ]), [1, 2]));
 
     const rounds = section('Startup funding rounds',
       'Medians for venture-backed companies. Angel and friends-and-family rounds price far lower, and AI companies far higher.',
@@ -870,14 +899,14 @@
         h('tbody', null,
           h('tr', null, h('td', { text: 'Early-stage startup' }), h('td', { text: 'Scorecard (Payne), Berkus, risk factor summation and the venture capital method, weighted equally. All four are anchored on the median pre-money valuation of comparable funded startups.' })),
           h('tr', null, h('td', { text: 'Tech startup' }), h('td', { text: 'Revenue multiple from a growth curve fitted to 2026 private SaaS deals, adjusted for business model, scale, retention, gross margin, Rule of 40, concentration and runway. Under $1.5M ARR it blends in an owner-earnings multiple. For a funding round, the venture capital method carries 70% of the weight.' })),
-          h('tr', null, h('td', { text: 'Small & medium business' }), h('td', { text: 'Industry SDE multiple (60%), capitalised earnings with a build-up discount rate (25%) and an industry revenue multiple (15%). Above $0.5M EBITDA it shifts to size-adjusted EBITDA multiples. Seven value drivers move the multiple by up to −50% or +40%. Tangible assets set a floor; a bank-financing check shows what a buyer can borrow.' }))))));
+          h('tr', null, h('td', { text: 'Small & medium business' }), h('td', { text: 'Industry SDE multiple (60%), capitalised earnings with a build-up discount rate (25%) and an industry revenue multiple (15%). Above $0.5M EBITDA it shifts to size-adjusted EBITDA multiples. Seven value drivers move the multiple by up to −50% or +40%. For a UK business, the UK sector range on adjusted EBITDA is added with the same weight as the US multiple. Tangible assets set a floor; a bank-financing check shows what a buyer can borrow.' }))))));
 
     const sources = section('Sources', 'Several figures come from broker and advisor summaries of the original reports. Check the primary report before relying on any one number.',
       h('ol', { class: 'sources' }, Object.values(B.SOURCES).map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name })))));
 
     $('#data-root').replaceChildren(
       section('Why owners are selling now', null, why),
-      sme, ebitda, tech, rounds, rates, methods, sources);
+      sme, ebitda, uk, tech, rounds, rates, methods, sources);
   }
 
   /* ---------------------------------- boot -------------------------------- */

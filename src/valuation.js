@@ -366,7 +366,9 @@
    *   drivers         { concentration: 'lt10', ... }
    *   riskFree, erp, growthRate, taxRate (all in %, optional)
    *   sbaRate %, sbaYears, dscr, downPayment % (optional)
-   *   fxPerUsd
+   *   market          'us' (default) or 'uk' (adds the UK sector range)
+   *   fxPerUsd        display-currency units per USD
+   *   gbpPerUsd       pounds per USD, to place EBITDA in the UK £1m band (optional)
    */
   function valueSme(input) {
     const fx = num(input.fxPerUsd, 1) > 0 ? num(input.fxPerUsd, 1) : 1;
@@ -477,6 +479,35 @@
       ]));
     }
 
+    // UK sector range on adjusted EBITDA; value drivers set the position inside the band.
+    const market = input.market === 'uk' ? 'uk' : 'us';
+    const band = B.UK_SME_BANDS[ind.key];
+    if (market !== 'uk') {
+      methods.push(skipped('uk', 'UK sector range', 'Used when the business is in the UK.'));
+    } else if (!band) {
+      methods.push(skipped('uk', 'UK sector range', 'No UK sector range published for this industry.'));
+      notes.push('No UK sector range covers this industry, so the estimate rests on US deal multiples only.');
+    } else if (ebitda <= 0) {
+      methods.push(skipped('uk', 'UK sector range', 'Needs positive adjusted EBITDA.'));
+    } else {
+      const gbp = num(input.gbpPerUsd, (B.CURRENCIES.find((c) => c.code === 'GBP') || { perUsd: 0.75 }).perUsd);
+      const ebitdaGbp = ebitdaUsd * gbp;
+      const t = interp(ebitdaGbp, [[B.UK_BAND_SPLIT[0], 0], [B.UK_BAND_SPLIT[1], 1]]);
+      const lo = band.small[0] + (band.large[0] - band.small[0]) * t;
+      const hi = band.small[1] + (band.large[1] - band.small[1]) * t;
+      const pos = clamp(0.5 + driverAdj, 0, 1);
+      const mult = lo + (hi - lo) * pos;
+      methods.push({
+        key: 'uk', label: 'UK sector range', value: ebitda * mult, low: ebitda * lo, high: ebitda * hi, weight: 0.6,
+        detail: [
+          { label: band.sector, value: `${lo.toFixed(1)}x–${hi.toFixed(1)}x` },
+          { label: 'Band', value: t <= 0 ? 'under £1m EBITDA' : t >= 1 ? '£1m+ EBITDA' : 'around £1m EBITDA' },
+          { label: 'Position from value drivers', value: `${Math.round(pos * 100)}% of the band` },
+          { label: 'Applied multiple', value: `${mult.toFixed(2)}x adjusted EBITDA` },
+        ],
+      });
+    }
+
     let range = blend(methods);
 
     // Tangible assets
@@ -518,6 +549,7 @@
       ...range,
       industry: ind,
       sector,
+      market,
       sde,
       ebitda,
       addBacks,
