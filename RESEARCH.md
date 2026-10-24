@@ -238,3 +238,120 @@ Sources: [WaveUp methods guide](https://waveup.com/blog/startup-valuation-method
 | UK and France band position | middle of the band, moved by the value-driver total | Same rule for both markets. |
 
 To update any figure, edit `src/benchmarks.js`; the tests in `test/valuation.test.js` check that the calibration still lands on the published medians.
+
+---
+
+## 7. Startup success model (next round, acquisition, IPO, shutdown)
+
+### 7a. Long-run outcomes: fitted on 6,153 Y Combinator startups
+
+**Data.** The Y Combinator company directory as published by the open-source [yc-oss/api](https://github.com/yc-oss/api) project (`companies/all.json`, snapshot 24 October 2026). 6,153 companies from batches 2005–2026 with a known outcome: 4,190 active, 839 acquired, 23 public, 1,101 inactive (shut down). Features are ex-ante only: years since the batch, industry, AI tag, US location, hardware, biotech and SaaS tags. Team size, "top company" and growth-stage flags are left out because they are outcomes, not predictors.
+
+**Model.** Multinomial logistic regression, reference outcome = still active, ridge penalty λ = 1, fitted by Newton's method (`scripts/fit_outcome_model.py`, numpy only, reproducible).
+
+**Fit.** On a 20% hold-out sample: AUC 0.84 (active), 0.83 (acquired), 0.82 (public), 0.75 (shut down); McFadden R² 0.21. Calibration by age band:
+
+| Years since batch | Companies | Acquired, model / actual | Public | Shut down |
+|---|---|---|---|---|
+| 0–2 | 1,240 | 1.2% / 1.2% | 0.0% / 0.0% | 2.0% / 1.6% |
+| 2–5 | 1,715 | 7.3% / 7.6% | 0.1% / 0.0% | 10.5% / 10.9% |
+| 5–10 | 2,050 | 16.4% / 16.2% | 0.3% / 0.2% | 22.7% / 22.8% |
+| 10–22 | 1,148 | 31.6% / 31.4% | 1.4% / 1.7% | 37.6% / 37.2% |
+
+**Odds ratios** (vs staying active; *** p<0.01, ** p<0.05, * p<0.1):
+
+| Factor | Acquired | Public | Shut down |
+|---|---|---|---|
+| Based in the US | 1.86*** | 2.17 | 1.23** |
+| AI company | 0.70*** | 0.45 | 0.63*** |
+| Consumer (vs B2B) | 0.81* | 0.77 | 1.52*** |
+| Healthcare | 0.43*** | 1.61 | 0.57*** |
+| Fintech | 0.72** | 1.03 | 0.59*** |
+| Industrials | 0.50*** | 2.84* | 0.60*** |
+| Hardware or robotics | 0.47*** | 0.45 | 0.88 |
+| Biotech | 0.43** | 1.73 | 0.56** |
+| SaaS | 1.07 | 0.52 | 0.67*** |
+
+**How the app uses it.** For a company that is still operating at age *a*, the chance of each outcome by age *a + h* is the model's increase in that outcome's share between the two ages, divided by today's active share (acquired, public and shut down are treated as permanent). Driver adjustments are then applied as odds multipliers (section 7c).
+
+**Caveats.** YC companies are a selected group, so absolute rates do not transfer to every startup. The directory updates status with a lag, and some "active" companies are zombies. Companies that survive are more likely to have added an AI tag later, which flatters the AI effect on survival. IPOs are rare (23), so the public-outcome coefficients are imprecise.
+
+### 7b. Next round: funding-funnel base rates
+
+| From | To | Within 24 months | Eventually | Typical wait | Basis |
+|---|---|---|---|---|---|
+| Pre-seed | Seed | 40% | 50% | 1.5 years | About 45–55% of pre-seed companies reach seed, ~18 months later ([Incisive Ventures](https://incisive.vc/2025/06/10/update-on-venture-graduation-rates/)) |
+| Seed | Series A | 16% | 30% | 2.1 years | 14–17% of recent Carta seed cohorts reach Series A within 24 months, ~30% in 2018–2020; median gap 616–774 days ([summary of Carta cohorts](https://venturecapitalcareers.com/blog/seed-to-series-a-graduation-rate), [Carta](https://carta.com/data/linkedin-seed-to-series-a-graduation-rates/)) |
+| Series A | Series B | 18% | 45% | 2.3 years | 9% (2022 cohort) to 25% (2018) within two years; 40–50% eventually; median gap ~844 days ([Stealth Agents](https://stealthagents.com/research/startup-fundraising-statistics-2026)) |
+| Series B | Series C | 22% | 55% | 2.4 years | Median B→C gap 2.4 years ([Carta via SaaStr](https://www.saastr.com/carta-the-average-time-from-seed-to-series-a-has-hit-2-2-years-and-longer-from-series-a-to-series-b/)) |
+| Series C+ | Later round or exit | 25% | 60% | 2.4 years | Assumption |
+
+Reference funnel, [CB Insights](https://cbinsights.com/blog/venture-capital-funnel-2) (1,100+ US seed-funded tech companies, 2008–2010): 48% raised a second round, 15% a fourth, 30% exited via M&A or IPO, 67% died or became self-sustaining, ~0.9% became unicorns. Other reference points: 966 Carta startups shut down in 2024, three in four at pre-seed or seed ([Carta](https://carta.com/data/newsletter-more-startups-shutdown/)); 421 Carta startups exited via M&A in H1 2026, a record ([Carta](https://carta.com/data/startup-exit-environment-h2-2026/)); roughly 100 VC-backed IPOs vs 1,000+ acquisitions in 2019 ([Fast Company on the Yale study](https://www.fastcompany.com/90838548/ipo-market-vc-backed-startups-study-yale-innovation-competition)).
+
+### 7c. Success drivers (odds multipliers)
+
+| Driver | Next round | Long-run outcomes (acquired / public / shut down) | Basis |
+|---|---|---|---|
+| Top accelerator or top-tier VC | × 1.8 | × 1 / 1 / 1 (the YC baseline) | PitchBook: 53% of consensus seed deals reached Series A vs 28% of others; 29.5% vs 39.4% went out of business |
+| Other institutional VC | × 1.0 | × 0.85 / 0.7 / 1.5 | Same PitchBook split; reference group for Carta base rates |
+| Angels only | × 0.6 | × 0.6 / 0.4 / 1.8 | Assumption |
+| No outside investors | × 0.45 | × 0.5 / 0.25 / 1.6 | Assumption |
+| Founder with a prior success | × 1.5 | × 1.4 / 1.95 / 0.8 | Gompers, Kovner, Lerner & Scharfstein: 30% vs 18% success ([NBER w12592](https://www.nber.org/papers/w12592)) |
+| Founder whose last startup failed | × 0.85 | × 0.9 / 0.8 / 1.15 | Prior failures do worse than first-timers (size assumed) |
+| Traction vs the next-round bar | × 0.5 to × 2.5 | traction^0.3 / ^0.5 / ^-0.5 | Assumption |
+| Runway under 6 / 6–12 / 12–24 / 24+ months | × 0.6 / 0.85 / 1 / 1.1 | shut down × 1.8 / 1.2 / 1 / 0.85 | Assumption |
+| Stage (Series A / B / C+ vs seed) | n/a | e.g. Series B × 1.4 / 2.5 / 0.65 | Assumption, consistent with rising graduation rates |
+| AI company | rounds ~1.4x faster | from the fitted model | PitchBook-NVCA Q1 2026: median time to Series A 1.3 vs 1.8 years ([WaveUp](https://waveup.com/blog/series-a-benchmarks/)) |
+
+---
+
+## 8. AI comparables
+
+Latest reported valuation and revenue run-rate for leading private AI companies (USD). Most figures come from trackers and press summaries; valuation and revenue dates do not always match. "Low" confidence = conflicting reports or dates far apart.
+
+| Segment | Company | Valuation | Revenue run-rate | Multiple | Date | Confidence |
+|---|---|---|---|---|---|---|
+| Foundation models | Anthropic | $965B | $47B | 20.5x | May 2026 | medium |
+| Foundation models | OpenAI | $852B | $40B | 21.3x | Mar–Aug 2026 | medium |
+| Foundation models | Mistral AI | ~$24B (€21B) | $0.4B | ~61x | early–Sep 2026 | low |
+| Infrastructure and data | Databricks | $190B | $7B | 27.1x | Aug 2026 | medium |
+| Infrastructure and data | Modal Labs | $15.75B | $1B | 15.8x | 2026 | medium |
+| Coding and dev tools | Cursor (Anysphere) | $60B (reported SpaceX deal) | $4B | 15x | Jun–Aug 2026 | low |
+| Coding and dev tools | Cognition | $26B | $492M | 52.8x | May 2026 | medium |
+| Coding and dev tools | Replit | $9B | $525M | 17.1x | Mar–Apr 2026 | medium |
+| Coding and dev tools | Lovable | $13.3B | $500M | 26.6x | 2026 | low |
+| Agents and enterprise apps | Glean | $7.2B | $300M | 24x | Feb 2026 | medium |
+| Agents and enterprise apps | Sierra | $15.8B | $150M | 105x | Feb–May 2026 | low |
+| Vertical AI | Harvey (legal) | $11B | $300M | 36.7x | Mar–Jun 2026 | medium |
+| Vertical AI | OpenEvidence (health) | $12B | ~$100M | 120x | Jan 2026 | low |
+| Vertical AI | Abridge (health) | $5.3B | ~$117M | 45x | Apr 2026 / 2025 ARR | low |
+| Vertical AI | Ambience Healthcare | $1.25B | ~$30M | 42x | 2025 | low |
+| Consumer, voice, media | ElevenLabs | $11B | $500M | 22x | early 2026 | medium |
+| Consumer, voice, media | Perplexity | ~$32.5B | ~$750M | ~43x | 2026 estimates | low |
+
+Sources: [Anthropic](https://valueaddvc.com/blog/anthropic-valuation-2026-965b-series-h-and-the-ipo-filing-explained), [OpenAI](https://valueaddvc.com/blog/openai-revenue-2026-20b-arr-4b-month-path-to-profitability), [AI coding](https://foundedceo.substack.com/p/the-top-10-ai-coding-agent-startups), [AI infrastructure](https://www.crescendo.ai/news/latest-vc-investment-deals-in-ai-startups), [vertical AI](https://aifundingtracker.com/top-legal-ai-startups/), [Abridge](https://valueaddvc.com/blog/abridge-valuation-2026-5-3b-100m-arr-and-how-the-ai-scribe-beat-nuance-and-ambience), [generative AI trackers](https://newmarketpitch.com/blogs/news/generative-ai-top-startups-valuation).
+
+**Public AI comparables (EV or price / revenue):** Palantir ~61.7x LTM (late Oct 2026, [Multiples.vc](https://multiples.vc/public-comps/palantir-valuation-multiples)); SoundHound ~12x sales ([Motley Fool](https://www.fool.com/investing/2026/10/09/where-palantir-ai-software-stock-crwd-soun-app/)); Snowflake 10.3–12.3x (Q1 2026, [PitchBook](https://pitchbook.com/news/reports/q1-2026-ai-public-comp-sheet-and-valuation-guide)); public data-infrastructure benchmark ~11x ([Windsor Drake](https://windsordrake.com/market-intelligence/reports/ai-infrastructure-valuations-q2-2026)); CoreWeave ~7.9x LTM (EV figure needs checking); public SaaS index 3.2x (SEG 2Q26).
+
+**Aggregates:** LLM vendors 39.5x median, AI infrastructure 21.2x, data intelligence 14.3x ([Finro, Q1 2026](https://www.finrofca.com/research/ai-multiples-q1-2026)); AI funding rounds 25–30x ([Aventis](https://aventis-advisors.com/ai-valuation-multiples/)); AI round multiples by stage: seed 10–25x, Series A 15–30x, Series B+ 25–50x ([Eqvista 2026](https://eqvista.com/ai-startup-fundraising-trends/)); AI valuation premium 42% at seed and 30% at Series A (Carta via [Causo](https://hub.causo.ai/guides/ai-startup-valuation-2026)).
+
+**How the app uses them.** The comps are market leaders with $100M+ revenue growing ~100%, so the median is scaled for size (0.5x at $0.5M revenue up to 1.0x at $250M) and adjusted for growth (square root of your growth vs 100%, bounded 0.5–1.4), then capped at the top of the Eqvista range for your stage.
+
+---
+
+## 9. The ten startup valuation methods and what each needs
+
+| Method | What it does | Inputs it asks for |
+|---|---|---|
+| Scorecard (Payne) | Market baseline × weighted comparison on team, opportunity, product, competition, channels, funding need | Market baseline; seven 50–150% comparisons |
+| Berkus | Up to 25% of the baseline for each of five risk-reducing milestones | Five milestone scores |
+| Risk factor summation | Baseline ± 12.5% per point across 12 risks | Twelve −2 to +2 risk scores |
+| Development stage | Milestone ladder tied to the market's round medians (idea 0.25–0.5x pre-seed … revenue growth 0.5–1x Series A) | Furthest milestone reached |
+| Cost to duplicate | What a competitor would spend to rebuild the product | Person-months, cost per person-month, IP, assets |
+| Comparable companies | Revenue × AI segment comps (adjusted) or sector M&A multiples | Revenue run-rate, growth, gross margin, segment |
+| Venture capital method | Exit value × (1 − later dilution) ÷ (1 + target return)^years − raise | Revenue plan, exit multiple, years, target return, dilution, raise |
+| First Chicago | Scenario values (IPO, acquired, still private, shut down) × the model's probabilities, discounted | Plan, exit multiple, scenario shares, discount rate |
+| Risk-adjusted DCF | Burn fades out, target margin phases in; survival-weighted; perpetuity terminal value | Burn, plan, target margin, discount rate, long-run cost of capital and growth |
+| Last round, stepped up | Last post-money × the median step-up to the next round, scaled by progress | Last post-money, months since, progress |
+
+Default weights: equal at pre-seed and seed (cost to duplicate 0.5; Berkus 0.5 once there is revenue); from Series A, comparables 1.5, scorecard and risk 0.5, development stage and cost to duplicate 0.25, Berkus 0. Median step-ups (Carta Q2 2026): pre-seed→seed 1.94x, seed→A 2.58x, A→B 1.74x; B→C 1.5x and C+ 1.3x are assumptions.

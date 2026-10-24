@@ -15,6 +15,7 @@
   --brass: #8f620e;
   --warn: #a3431c;
   --warn-soft: #f7e6dc;
+  --seg-private: #a9b8b1;
 
   --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -47,6 +48,7 @@
     --brass: #e2b057;
     --warn: #f08e66;
     --warn-soft: #3a2219;
+    --seg-private: #4c5e57;
     color-scheme: dark;
   }
 }
@@ -65,6 +67,7 @@
   --brass: #e2b057;
   --warn: #f08e66;
   --warn-soft: #3a2219;
+  --seg-private: #4c5e57;
   color-scheme: dark;
 }
 
@@ -680,6 +683,66 @@ main { padding-block: 28px 64px; }
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 .sheet-foot { margin: 0; font-size: 0.75rem; color: var(--muted); }
+
+/* Success odds */
+.odds { display: grid; gap: 10px; padding-top: 4px; border-top: 1px solid var(--rule); }
+.odds h3, .comps h3 {
+  margin: 10px 0 0;
+  font-size: var(--step--1);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.odds-next { display: flex; align-items: baseline; gap: 12px; }
+.odds-big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 112%;
+  font-size: var(--step-2);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.odds-next small { display: block; font-size: 0.75rem; color: var(--muted); }
+.odds-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--rule);
+}
+.odds-bar .seg { display: block; height: 100%; }
+.seg-ipo { background: var(--brass); }
+.seg-acq { background: var(--accent); }
+.seg-priv { background: var(--seg-private); }
+.seg-fail { background: var(--warn); }
+.odds-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.odds-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.odds-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.odds-legend strong { color: var(--ink); }
+.odds-caption, .odds-funnel, .comps-note { margin: 0; font-size: 0.75rem; color: var(--muted); }
+.odds-funnel strong { color: var(--ink); font-weight: 600; }
+.odds-why { font-size: 0.75rem; color: var(--muted); }
+.odds-why summary { cursor: pointer; color: var(--accent); }
+.odds-why ul { margin: 6px 0; padding-left: 1.1em; display: grid; gap: 2px; }
+.odds-why p { margin: 4px 0 0; }
+
+/* AI comps in the sheet */
+.comps { display: grid; gap: 8px; border-top: 1px solid var(--rule); }
+.comps table { font-size: 0.75rem; }
+.comps th, .comps td { padding: 6px 8px; }
+.comps small { display: block; color: var(--muted); }
+.conf-low { color: var(--warn); }
 .sheet-actions {
   display: flex;
   flex-wrap: wrap;

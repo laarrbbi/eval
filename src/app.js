@@ -8,6 +8,13 @@
 
   const B = window.Benchmarks;
   const V = window.Valuation;
+  const SD = window.StartupData;
+  const SM = window.StartupModel;
+  const METHOD_LABELS = {
+    scorecard: 'Scorecard', berkus: 'Berkus', risk: 'Risk factor summation', devStage: 'Development stage',
+    duplicate: 'Cost to duplicate', comps: 'Comparable companies', vc: 'Venture capital method',
+    firstChicago: 'First Chicago', dcf: 'Risk-adjusted DCF', lastRound: 'Last round, stepped up',
+  };
   const STORE_KEY = 'startup-sme-valuator.v1';
   const TABS = ['startup', 'tech', 'sme', 'data'];
 
@@ -96,6 +103,11 @@
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
   }
 
+  function startupSource(key) {
+    const s = SD.SOURCES[key];
+    return s ? h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name }) : null;
+  }
+
   function sourceLink(key) {
     const s = B.SOURCES[key];
     return s ? h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name }) : null;
@@ -108,20 +120,94 @@
   const FORMS = {
     startup: [
       {
-        id: 'st-round', title: 'The round',
+        id: 'st-company', title: 'The company', roomy: true,
+        fields: [
+          { id: 'st-stage', kind: 'select', label: 'Last round raised (or raising now)', options: SD.STAGES.map((x) => ({ value: x.key, label: x.label })), default: 'seed' },
+          { id: 'st-age', kind: 'number', label: 'Years since founding', suffix: 'years', default: 1.5 },
+          { id: 'st-industry', kind: 'select', label: 'Industry', options: SM.INDUSTRIES.map((x) => ({ value: x.key, label: x.label })), default: 'B2B' },
+          { id: 'st-model', kind: 'select', label: 'Business model', options: SM.BUSINESS_MODELS.map((x) => ({ value: x.key, label: x.label })), default: 'saas' },
+          {
+            id: 'st-ai', kind: 'select', label: 'AI segment', help: 'Picks the AI comparables and the faster AI funding pace.',
+            options: [{ value: '', label: 'Not an AI company' }, ...SD.AI_SEGMENTS.map((x) => ({ value: x.key, label: x.label }))], default: 'coding',
+          },
+          { id: 'st-hq', kind: 'select', label: 'Headquarters', options: [{ value: 'us', label: 'United States' }, { value: 'europe', label: 'Europe' }, { value: 'uk', label: 'United Kingdom' }, { value: 'other', label: 'Elsewhere' }], default: 'us' },
+        ],
+      },
+      {
+        id: 'st-round', title: 'Market baseline and this round',
         fields: [
           {
             id: 'st-market', kind: 'select', label: 'Compare with',
             options: [...B.STARTUP_MARKETS.map((m) => ({ value: m.key, label: m.label })), { value: 'custom', label: 'My own baseline' }],
             default: 'usVc',
           },
-          { id: 'st-stage', kind: 'select', label: 'Stage', options: [{ value: 'preseed', label: 'Pre-seed' }, { value: 'seed', label: 'Seed' }], default: 'seed' },
-          { id: 'st-baseline', kind: 'amount', label: 'Market baseline (median pre-money)', help: 'Filled from the market you pick. Type your own figure if you know local deal prices.', default: null },
-          { id: 'st-raise', kind: 'amount', label: 'Amount you are raising', default: 3000000 },
+          { id: 'st-baseline', kind: 'amount', label: 'Market baseline (median pre-money for your stage)', help: 'Filled from the market and stage you pick. Type your own figure if you know local deal prices.', default: null },
+          { id: 'st-raise', kind: 'amount', label: 'Amount you are raising now', default: 4000000 },
         ],
       },
       {
-        id: 'st-scorecard', title: 'Scorecard method', collapsible: true, open: true, layout: 'scales',
+        id: 'st-team', title: 'Founders and investors', roomy: true,
+        fields: [
+          { id: 'st-founder', kind: 'select', label: 'Founder track record', options: Object.entries(SD.NEXT_ROUND_FACTORS.founder).map(([k, x]) => ({ value: k, label: x.label })), default: 'first' },
+          { id: 'st-investors', kind: 'select', label: 'Who backs you', options: Object.entries(SD.NEXT_ROUND_FACTORS.investors).map(([k, x]) => ({ value: k, label: x.label })), default: 'top' },
+          { id: 'st-last-post', kind: 'amount', label: 'Last round post-money', help: 'Leave empty if this is your first round.', default: 12000000 },
+          { id: 'st-last-months', kind: 'number', label: 'Months since that round', suffix: 'months', default: 14 },
+          {
+            id: 'st-progress', kind: 'select', label: 'Progress since that round',
+            options: [{ value: 'behind', label: 'Behind plan' }, { value: 'flat', label: 'Flat' }, { value: 'onPlan', label: 'On plan' }, { value: 'milestones', label: 'Hit the milestones for the next round' }],
+            default: 'onPlan',
+          },
+        ],
+      },
+      {
+        id: 'st-traction', title: 'Traction and cash', roomy: true,
+        fields: [
+          { id: 'st-arr', kind: 'amount', label: 'Annual revenue run-rate', help: 'This month’s revenue × 12. Leave empty if pre-revenue.', default: 1200000 },
+          { id: 'st-growth', kind: 'percent', label: 'Revenue growth, last 12 months', default: 250 },
+          { id: 'st-gm', kind: 'percent', label: 'Gross margin', default: 65 },
+          { id: 'st-ebitda', kind: 'percent', label: 'EBITDA margin now', help: 'Negative while you burn cash.', default: -120 },
+          { id: 'st-traction-level', kind: 'select', label: 'Traction against the bar for your next round', options: Object.entries(SD.NEXT_ROUND_FACTORS.traction).map(([k, x]) => ({ value: k, label: x.label })), default: 'strong' },
+          { id: 'st-burn', kind: 'amount', label: 'Monthly net burn', default: 250000 },
+          { id: 'st-runway', kind: 'number', label: 'Cash runway', suffix: 'months', default: 18 },
+        ],
+      },
+      {
+        id: 'st-plan', title: 'Plan and exit', collapsible: true, open: true,
+        hint: 'Used by the venture capital method, First Chicago and the DCF. Leave the exit multiple empty to use AI comparables or sector multiples.',
+        fields: [
+          { id: 'st-rev1', kind: 'amount', label: 'Revenue in the next 12 months', default: 3000000 },
+          { id: 'st-growth2', kind: 'percent', label: 'Growth in year 2', default: 150 },
+          { id: 'st-fade', kind: 'percent', label: 'Growth slowdown per year', help: '25% turns 100% growth into 75%, then 56%…', default: 25 },
+          { id: 'st-target', kind: 'percent', label: 'Free cash flow margin at exit', default: 20 },
+          { id: 'st-years', kind: 'number', label: 'Years to exit', suffix: 'years', default: 7 },
+          { id: 'st-exit-mult', kind: 'number', label: 'Exit multiple', suffix: 'x revenue', placeholder: 'auto', default: '' },
+          { id: 'st-irr', kind: 'percent', label: 'Investor target return', help: 'Per year. Damodaran: 50–70% start-up, 40–60% first stage.', default: 50 },
+          { id: 'st-dilution', kind: 'percent', label: 'Dilution from later rounds', default: 40 },
+          { id: 'st-discount', kind: 'percent', label: 'Discount rate, First Chicago and DCF', help: 'Lower than the VC target: failure is already in the probabilities.', default: 20 },
+          { id: 'st-mature', kind: 'percent', label: 'Long-run cost of capital', help: 'For the DCF terminal value.', default: 12 },
+          { id: 'st-tgrowth', kind: 'percent', label: 'Long-run growth', default: 3 },
+          { id: 'st-acq', kind: 'percent', label: 'Typical acquisition, share of the success value', default: 30 },
+          { id: 'st-private', kind: 'percent', label: 'Still private at exit, share of the success value', help: 'Mostly companies that missed the plan.', default: 20 },
+        ],
+      },
+      {
+        id: 'st-duplicate', title: 'Cost to duplicate', collapsible: true, open: false,
+        hint: 'What a competitor would spend to rebuild what you have. Usually a floor, not a price.',
+        fields: [
+          { id: 'st-pm', kind: 'number', label: 'Engineering effort to rebuild', suffix: 'person-months', default: 60 },
+          { id: 'st-pm-cost', kind: 'amount', label: 'Loaded cost per person-month', default: 18000 },
+          { id: 'st-ip', kind: 'amount', label: 'Patents and IP', default: 0 },
+          { id: 'st-assets', kind: 'amount', label: 'Equipment, data and other assets', default: 20000 },
+        ],
+      },
+      {
+        id: 'st-dev', title: 'Development stage',
+        fields: [
+          { id: 'st-devstage', kind: 'select', label: 'Furthest milestone reached', wide: true, options: SD.DEV_STAGES.map((x) => ({ value: String(x.key), label: x.label })), default: '4' },
+        ],
+      },
+      {
+        id: 'st-scorecard', title: 'Scorecard method', collapsible: true, open: false, layout: 'scales',
         hint: 'Compare your startup with a typical funded startup at the same stage and in the same region.',
         fields: B.SCORECARD_FACTORS.map((f) => ({
           id: `st-sc-${f.key}`, kind: 'scale', label: f.label, weight: `${Math.round(f.weight * 100)}%`,
@@ -129,7 +215,7 @@
         })),
       },
       {
-        id: 'st-berkus', title: 'Berkus method', collapsible: true, open: true, layout: 'scales',
+        id: 'st-berkus', title: 'Berkus method', collapsible: true, open: false, layout: 'scales',
         hint: 'Five milestones that remove risk. Each is worth up to a quarter of the market baseline.',
         fields: B.BERKUS_FACTORS.map((f) => ({
           id: `st-bk-${f.key}`, kind: 'scale', label: f.label, help: f.help,
@@ -145,15 +231,9 @@
         })),
       },
       {
-        id: 'st-vc', title: 'Venture capital method', collapsible: true, open: false,
-        hint: 'What an investor can pay today to earn their target return at exit. Leave revenue empty to skip it.',
-        fields: [
-          { id: 'st-vc-revenue', kind: 'amount', label: 'Revenue in the exit year', default: 40000000 },
-          { id: 'st-vc-multiple', kind: 'number', label: 'Exit multiple', suffix: 'x revenue', default: 5, help: 'Private software sells near 4x revenue; most other sectors 0.5x to 2x.' },
-          { id: 'st-vc-years', kind: 'number', label: 'Years to exit', suffix: 'years', default: 6 },
-          { id: 'st-vc-irr', kind: 'percent', label: 'Investor target return', help: 'Per year. Typical: 50–70% pre-seed, 40–60% seed.', default: 50 },
-          { id: 'st-vc-dilution', kind: 'percent', label: 'Dilution from later rounds', default: 40 },
-        ],
+        id: 'st-weights', title: 'Method weights', collapsible: true, open: false,
+        hint: 'Leave a weight empty to use the default for your stage (shown in grey). Set 0 to drop a method.',
+        fields: SM.METHOD_KEYS.map((k) => ({ id: `st-w-${k}`, kind: 'number', label: METHOD_LABELS[k], placeholder: '', default: '' })),
       },
     ],
 
@@ -276,7 +356,7 @@
       h('div', { class: 'control' },
         f.kind === 'amount' ? h('span', { class: 'affix prefix', 'aria-hidden': 'true', text: cur().symbol.trim() }) : null,
         h('input', {
-          id: f.id, name: f.id, type: 'text', autocomplete: 'off', spellcheck: 'false',
+          id: f.id, name: f.id, type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: f.placeholder || null,
           inputmode: 'decimal', 'data-kind': f.kind, 'aria-describedby': f.help ? `${f.id}-help` : null,
         }),
         suffix ? h('span', { class: 'affix', 'aria-hidden': 'true', text: suffix }) : null),
@@ -411,13 +491,18 @@
 
   /* ------------------------------ interactions ---------------------------- */
 
+  // Market baseline for the chosen stage. Pre-seed and seed come from the market presets;
+  // later stages scale the market's seed median by Carta's US stage ratios.
   function refreshBaseline() {
     const market = $('#st-market').value;
     if (market === 'custom') return;
     const preset = B.STARTUP_MARKETS.find((m) => m.key === market);
-    const amount = convert(preset[$('#st-stage').value], preset.currency);
-    $('#st-baseline').value = formatInput('amount', roundSig(amount));
+    const stage = $('#st-stage').value;
+    const local = stage === 'preseed' || stage === 'seed' ? preset[stage] : preset.seed * SM.stageBaselineRatio(stage);
+    $('#st-baseline').value = formatInput('amount', roundSig(convert(local, preset.currency)));
   }
+
+  const vcStageFor = (stage) => stageOf(stage === 'seriesC' ? 'seriesB' : stage) || stageOf('seed');
 
   function onInput(tab, e) {
     const id = e.target.name || e.target.id;
@@ -425,11 +510,15 @@
 
     if (tab === 'startup') {
       if (id === 'st-baseline' && e.type === 'input') $('#st-market').value = 'custom';
-      if ((id === 'st-market' || id === 'st-stage') && e.type === 'change') refreshBaseline();
+      if (id === 'st-hq' && e.type === 'change') {
+        const m = { us: 'usVc', europe: 'euVc', uk: 'ukVc' }[$('#st-hq').value];
+        if (m) setValue({ id: 'st-market', kind: 'select' }, m);
+      }
+      if ((id === 'st-market' || id === 'st-stage' || id === 'st-hq') && e.type === 'change') refreshBaseline();
       if (id === 'st-stage' && e.type === 'change') {
-        const s = stageOf($('#st-stage').value);
-        setValue({ id: 'st-vc-irr', kind: 'percent' }, s.targetIrr * 100);
-        setValue({ id: 'st-vc-dilution', kind: 'percent' }, s.dilution * 100);
+        const s = vcStageFor($('#st-stage').value);
+        setValue({ id: 'st-irr', kind: 'percent' }, s.targetIrr * 100);
+        setValue({ id: 'st-dilution', kind: 'percent' }, s.dilution * 100);
       }
     }
     if (tab === 'tech' && id === 'tc-stage' && e.type === 'change') {
@@ -542,44 +631,147 @@
   function computeStartup() {
     const v = readForm('startup');
     const pick = (prefix, list) => Object.fromEntries(list.map((f) => [f.key, v[`${prefix}${f.key}`]]));
-    const r = V.valueStartup({
+    const stage = v['st-stage'];
+    const r = SM.valueStartupModel({
+      stage,
+      ageYears: v['st-age'],
+      industry: v['st-industry'],
+      model: v['st-model'],
+      aiSegment: v['st-ai'],
+      hq: v['st-hq'],
       baseline: v['st-baseline'],
       raise: v['st-raise'],
+      founder: v['st-founder'],
+      investors: v['st-investors'],
+      lastPost: v['st-last-post'],
+      monthsSinceLast: v['st-last-months'],
+      progress: v['st-progress'],
+      arr: v['st-arr'],
+      growth: v['st-growth'],
+      grossMargin: v['st-gm'],
+      ebitdaMargin: v['st-ebitda'],
+      traction: v['st-traction-level'],
+      monthlyBurn: v['st-burn'],
+      runwayMonths: v['st-runway'],
+      rev1: v['st-rev1'],
+      growth2: v['st-growth2'],
+      fade: v['st-fade'],
+      targetMargin: v['st-target'],
+      yearsToExit: v['st-years'],
+      exitMultiple: v['st-exit-mult'],
+      targetIrr: v['st-irr'],
+      dilution: v['st-dilution'],
+      discountRate: v['st-discount'],
+      matureRate: v['st-mature'],
+      terminalGrowth: v['st-tgrowth'],
+      acqShare: v['st-acq'],
+      privateShare: v['st-private'],
+      personMonths: v['st-pm'],
+      costPerMonth: v['st-pm-cost'],
+      ipCost: v['st-ip'],
+      otherAssets: v['st-assets'],
+      devStage: v['st-devstage'],
       scorecard: pick('st-sc-', B.SCORECARD_FACTORS),
       berkus: pick('st-bk-', B.BERKUS_FACTORS),
       risks: pick('st-rf-', B.RISK_FACTORS),
-      vc: {
-        exitRevenue: v['st-vc-revenue'], exitMultiple: v['st-vc-multiple'], years: v['st-vc-years'],
-        targetIrr: v['st-vc-irr'], dilution: v['st-vc-dilution'],
-      },
+      weights: Object.fromEntries(SM.METHOD_KEYS.map((k) => [k, v[`st-w-${k}`]])),
+      fxPerUsd: state.fx,
     });
     state.results.startup = r;
 
+    // Default weights for this stage, shown as placeholders
+    const dw = SM.defaultWeights(stage, (v['st-arr'] || 0) > 0);
+    for (const k of SM.METHOD_KEYS) {
+      const el = document.getElementById(`st-w-${k}`);
+      if (el) el.placeholder = String(dw[k]);
+    }
+
     const byKey = (k) => r.methods.find((m) => m.key === k);
-    setMeta('st-scorecard', r.baseline > 0 ? `${times(byKey('scorecard').value / r.baseline, 3)} baseline` : '');
+    const base = v['st-baseline'];
+    setMeta('st-scorecard', base > 0 && !byKey('scorecard').skipped ? `${times(byKey('scorecard').value / base, 3)} baseline` : '');
     setMeta('st-berkus', money(byKey('berkus').value));
     const pts = B.RISK_FACTORS.reduce((s, f) => s + v[`st-rf-${f.key}`], 0);
     setMeta('st-risk', `${pts > 0 ? '+' : ''}${pts} points`);
-    setMeta('st-vc', byKey('vc').skipped ? 'not used' : money(byKey('vc').value));
+    setMeta('st-plan', `exit year ${r.plan.years}: ${money(r.plan.exitRevenue)} revenue × ${trim(r.exitMultiple, 1)}`);
+    setMeta('st-duplicate', byKey('duplicate').skipped ? 'not used' : money(byKey('duplicate').value));
+    setMeta('st-dev', byKey('devStage').skipped ? '' : money(byKey('devStage').value));
+    setMeta('st-weights', `${r.methods.filter((m) => !m.skipped && m.share > 0).length} of 10 methods in use`);
 
+    const nr = r.nextRound;
+    const lr = r.longRun.probs;
     renderSheet('startup', {
       label: 'Estimated pre-money valuation',
       result: r,
       empty: 'Enter a market baseline to see a valuation.',
       kpis: r.mid > 0 ? [
-        { label: 'Post-money', value: money(r.postMoney), note: `with ${money(r.raise)} raised` },
-        { label: 'Investors get', value: pct(r.dilution, 1), note: 'of the company' },
-        { label: 'Market baseline', value: money(r.baseline), note: $('#st-market').selectedOptions[0].textContent },
+        { label: 'Post-money', value: money(r.postMoney), note: `with ${money(num(v['st-raise']))} raised` },
+        { label: `${nr.next} within 24 months`, value: pct(nr.p24), note: `${pct(nr.eventual)} eventually` },
+        { label: `Shut down within ${r.longRun.horizon} years`, value: pct(lr.Inactive), note: `exit ${pct(lr.Acquired + lr.Public)}`, warn: lr.Inactive > 0.4 },
       ] : [],
-      refs: r.baseline > 0 ? [{ label: 'Market baseline', value: r.baseline }] : [],
+      refs: base > 0 ? [{ label: 'Market baseline', value: base }] : [],
+      extraTop: oddsPanel(r),
+      extraBottom: r.comps ? compsPanel(r.comps, stage) : null,
       facts: [
-        ['Compared with', $('#st-market').selectedOptions[0].textContent],
         ['Stage', $('#st-stage').selectedOptions[0].textContent],
-        ['Market baseline', money(r.baseline)],
-        ['Raising', money(r.raise)],
+        ['Industry', $('#st-industry').selectedOptions[0].textContent],
+        ['Business model', $('#st-model').selectedOptions[0].textContent],
+        ['AI segment', $('#st-ai').selectedOptions[0].textContent],
+        ['Revenue run-rate', money(num(v['st-arr']))],
+        ['Market baseline', money(base)],
       ],
-      foot: 'Four methods weighted equally. Pre-revenue valuations are negotiated; use the range to set your SAFE cap or priced-round ask.',
+      summaryExtra: [
+        `Next round (${nr.next}): ${pct(nr.p24)} within 24 months, ${pct(nr.eventual)} eventually, typical wait ${trim(nr.years, 1)} years`,
+        `Within ${r.longRun.horizon} years: IPO ${pct(lr.Public, 1)}, acquired ${pct(lr.Acquired)}, still private ${pct(lr.Active)}, shut down ${pct(lr.Inactive)}`,
+        `Funnel: ${r.funnel.map((f) => `${f.label} ${pct(f.p)}`).join(' → ')}`,
+      ],
+      foot: 'Ten methods, weighted by stage. Success odds come from an outcome model fitted on 6,153 Y Combinator startups plus 2025–26 funding-funnel data; see the Market data tab.',
     });
+  }
+
+  const num = (x) => (Number.isFinite(x) ? x : 0);
+
+  function oddsPanel(r) {
+    const nr = r.nextRound;
+    const p = r.longRun.probs;
+    const segs = [
+      { key: 'ipo', label: 'IPO', v: p.Public },
+      { key: 'acq', label: 'Acquired', v: p.Acquired },
+      { key: 'priv', label: 'Still private', v: p.Active },
+      { key: 'fail', label: 'Shut down', v: p.Inactive },
+    ];
+    const factorRows = [
+      ...nr.factors.map((f) => h('li', null, f.label, h('span', { class: 'num', text: f.or ? ` × ${trim(f.or, 2)} odds` : ` × ${trim(f.pace, 2)} pace` }))),
+    ];
+    const m = SD.OUTCOME_MODEL;
+    return h('section', { class: 'odds', 'aria-label': 'Success odds' },
+      h('h3', { text: 'Success odds' }),
+      h('div', { class: 'odds-next' },
+        h('span', { class: 'odds-big', text: pct(nr.p24) }),
+        h('span', null, `chance of raising a ${nr.next} within 24 months`,
+          h('small', { text: `${pct(nr.eventual)} eventually · typical wait ${trim(nr.years, 1)} years · base rate ${pct(nr.baseP24)} for a ${nr.stage.label} company` }))),
+      h('div', { class: 'odds-bar', role: 'img', 'aria-label': segs.map((x) => `${x.label} ${pct(x.v)}`).join(', ') },
+        segs.map((x) => h('span', { class: `seg seg-${x.key}`, style: `width:${Math.max(0, x.v * 100)}%` }))),
+      h('ul', { class: 'odds-legend' }, segs.map((x) => h('li', null, h('i', { class: `seg-${x.key}` }), `${x.label} `, h('strong', { class: 'num', text: x.key === 'ipo' ? pct(x.v, 1) : pct(x.v) })))),
+      h('p', { class: 'odds-caption', text: `Where the company is likely to be ${r.longRun.horizon} years from now (your years to exit).` }),
+      h('p', { class: 'odds-funnel' }, 'Chance of reaching ', r.funnel.map((f, i) => [i ? ' → ' : '', h('strong', { text: `${f.label} ${pct(f.p)}` })])),
+      h('details', { class: 'odds-why' },
+        h('summary', { text: 'What drives these odds' }),
+        h('ul', null, factorRows),
+        h('p', { text: `Long-run outcomes: multinomial logistic model on ${m.n.toLocaleString('en-US')} YC startups (batches ${m.batches}), out-of-sample AUC ${m.holdout.auc.Acquired} for acquisition and ${m.holdout.auc.Inactive} for shutdown. Next-round odds: Carta and PitchBook graduation rates adjusted by the factors above.` })));
+  }
+
+  function compsPanel(c, stage) {
+    const range = SD.AI_COMP_ADJUST.stageRange[stage === 'seriesC' ? 'seriesB' : stage === 'preseed' ? 'seed' : stage];
+    return h('section', { class: 'comps', 'aria-label': 'AI comparables' },
+      h('h3', { text: `AI comparables · ${c.segment.label}` }),
+      h('div', { class: 'table-wrap' }, h('table', null,
+        h('thead', null, h('tr', null, ['Company', 'Valuation', 'Revenue', 'Multiple'].map((t, i) => h('th', { class: i ? 'num' : null, text: t })))),
+        h('tbody', null, c.rows.map((x) => h('tr', null,
+          h('td', null, x.company, h('small', { class: `conf conf-${x.confidence}`, text: ` ${x.date}${x.confidence === 'low' ? ' · low confidence' : ''}` })),
+          h('td', { class: 'num', text: moneyIn('USD', x.valuation) }),
+          h('td', { class: 'num', text: moneyIn('USD', x.revenue) }),
+          h('td', { class: 'num', text: `${trim(x.multiple, 1)}x` })))))),
+      h('p', { class: 'comps-note', text: `Median ${trim(c.median, 1)}x revenue. For your size and growth: × ${trim(c.scale, 2)} scale, × ${trim(c.growthAdj, 2)} growth = ${trim(c.applied, 1)}x${range ? `. AI rounds at this stage price at ${range[0]}–${range[1]}x (Eqvista 2026).` : '.'}` }));
   }
 
   function computeTech() {
@@ -752,8 +944,10 @@
           h('dt', { text: k.label }),
           h('dd', null, k.value, k.note ? h('small', { text: k.note }) : null))))
         : null,
+      has && cfg.extraTop ? cfg.extraTop : null,
       has ? footballField(r, cfg.refs) : null,
       r.methods.length ? methodsList(tab, r) : null,
+      has && cfg.extraBottom ? cfg.extraBottom : null,
       r.notes.length ? h('ul', { class: 'notes' }, r.notes.map((n) => h('li', { text: n }))) : null,
       cfg.foot ? h('p', { class: 'sheet-foot', text: cfg.foot }) : null,
       has ? copyControls(tab) : null,
@@ -763,7 +957,7 @@
     updateMobileTotal();
   }
 
-  const TITLES = { startup: 'Early-stage startup valuation', tech: 'Tech startup valuation', sme: 'Business sale valuation' };
+  const TITLES = { startup: 'Startup valuation and success odds', tech: 'Tech startup valuation', sme: 'Business sale valuation' };
 
   function summaryText(tab, cfg) {
     const r = cfg.result;
@@ -775,6 +969,7 @@
       `${cfg.label}: ${money(r.mid)}`,
       `Likely range: ${money(r.low)} to ${money(r.high)}`,
       ...cfg.kpis.map((k) => `${k.label}: ${k.value}${k.note ? ` (${k.note})` : ''}`),
+      ...(cfg.summaryExtra || []),
       '',
       'Methods:',
       ...r.methods.filter((m) => !m.skipped && m.share > 0)
@@ -962,6 +1157,43 @@
       `Indicative ranges on normalised EBE (the French EBITDA) from French M&A advisers, 2026. Advisers reported an average of ${B.FR_MARKET.adviserAverageH2_2025}x in H2 2025, and most 2026 guides put a typical deal near ${B.FR_MARKET.typical2026}x. Software publishers trade at 8–15x and belong in the tech valuator.`,
       table(['Segment', 'Range', 'Used for', 'Source'], frRows, [1]));
 
+    const m = SD.OUTCOME_MODEL;
+    const pct1 = (x) => `${(x * 100).toFixed(1)}%`;
+    const orCell = (pair) => `${pair[0].toFixed(2)}${pair[1] < 0.01 ? '***' : pair[1] < 0.05 ? '**' : pair[1] < 0.1 ? '*' : ''}`;
+    const FEATURE_LABELS = {
+      ln_age: 'Age (log years)', ln_age2: 'Age squared', ai: 'AI company', consumer: 'Consumer', healthcare: 'Healthcare',
+      fintech: 'Fintech', industrials: 'Industrials', other_industry: 'Education, real estate, government', us: 'Based in the US',
+      hardware: 'Hardware or robotics', biotech: 'Biotech', saas: 'SaaS',
+    };
+    const outcomes = section('Startup outcomes model',
+      `Multinomial logistic regression on ${m.n.toLocaleString('en-US')} Y Combinator startups (batches ${m.batches}; ${m.statusCounts.Active.toLocaleString('en-US')} active, ${m.statusCounts.Acquired} acquired, ${m.statusCounts.Public} public, ${m.statusCounts.Inactive.toLocaleString('en-US')} shut down), snapshot ${m.asOf}. Odds ratios against staying active; *** p<0.01, ** p<0.05, * p<0.1. On a 20% hold-out sample: AUC ${m.holdout.auc.Acquired} acquired, ${m.holdout.auc.Public} public, ${m.holdout.auc.Inactive} shut down; McFadden R² ${m.holdout.mcfaddenR2}.`,
+      table(['Factor', 'Acquired', 'Public', 'Shut down'],
+        Object.entries(m.oddsRatios).map(([k, v]) => [FEATURE_LABELS[k] || k, orCell(v.Acquired), orCell(v.Public), orCell(v.Inactive)]), [1, 2, 3]),
+      table(['Years since start', 'Companies', 'Acquired (model / actual)', 'Public', 'Shut down'],
+        m.calibration.map((c) => [c.age_band.replace('[', '').replace(')', '').replace(', ', '–'), String(c.n),
+          `${pct1(c.pred_Acquired)} / ${pct1(c.obs_Acquired)}`, `${pct1(c.pred_Public)} / ${pct1(c.obs_Public)}`, `${pct1(c.pred_Inactive)} / ${pct1(c.obs_Inactive)}`]), [1, 2, 3, 4]),
+      h('p', { text: 'Caveats: YC startups are a selected group; the directory updates status with a lag; and survivors are more likely to have added an AI tag, which flatters the AI effect. Driver adjustments for investors, founders, stage, runway and traction are applied on top as odds multipliers.' }));
+
+    const funnelSection = section('Funding funnel',
+      `Chance of raising the next round. Classic reference (CB Insights, ${SD.CB_FUNNEL.cohort}): ${pct(SD.CB_FUNNEL.secondRound)} raised a second round, ${pct(SD.CB_FUNNEL.fourthRound)} a fourth, ${pct(SD.CB_FUNNEL.exited)} exited, ${pct(SD.CB_FUNNEL.deadOrSelfSustaining)} died or became self-sustaining, ${pct1(SD.CB_FUNNEL.unicorn)} became unicorns.`,
+      table(['From', 'To', 'Within 24 months', 'Eventually', 'Typical wait', 'Basis'],
+        SD.STAGES.map((x) => [x.label, x.next, pct(x.p24), pct(x.eventual), `${x.years} years`, h('span', null, `${x.basis} `, startupSource(x.source))]), [2, 3, 4]),
+      table(['Driver', 'Odds multiplier on the next round', 'Basis'], [
+        ...Object.values(SD.NEXT_ROUND_FACTORS.investors).map((x) => [x.label, `× ${x.or}`, x.basis]),
+        ...Object.values(SD.NEXT_ROUND_FACTORS.founder).map((x) => [x.label, `× ${x.or}`, x.basis]),
+        ['AI company', `× ${trim(SD.NEXT_ROUND_FACTORS.aiHazardRatio, 2)} pace`, h('span', null, 'Median time to Series A 1.3 vs 1.8 years. ', startupSource('aiTiming'))],
+      ], [1]));
+
+    const aiRows = SD.AI_COMPS.map((c) => [
+      c.company, (SD.AI_SEGMENTS.find((x) => x.key === c.segment) || {}).label, moneyIn('USD', c.valuation), moneyIn('USD', c.revenue),
+      `${trim(c.valuation / c.revenue, 1)}x`, `${c.date}${c.confidence === 'low' ? ' · low confidence' : ''}`, startupSource(c.source),
+    ]);
+    const aiSection = section('AI comparables',
+      'Latest reported valuations and revenue run-rates for leading private AI companies. Most figures come from trackers and press summaries, and valuation and revenue dates do not always match; low-confidence rows have conflicting reports. In the startup model, the segment median is scaled down for size and adjusted for growth, then capped at the top of AI round multiples for your stage (Eqvista 2026: seed 10–25x, Series A 15–30x, Series B+ 25–50x).',
+      table(['Company', 'Segment', 'Valuation', 'Revenue run-rate', 'Multiple', 'Date', 'Source'], aiRows, [2, 3, 4]),
+      table(['Public comparable', 'Multiple', 'Basis', 'Source'], SD.PUBLIC_AI_COMPS.map((c) => [c.company, `${c.multiple}x`, c.basis, startupSource(c.source)]), [1]),
+      table(['Aggregate', 'Value', 'Source'], SD.AI_AGGREGATES.map((a) => [a.label, a.value, startupSource(a.source)]), [1]));
+
     const rounds = section('Startup funding rounds',
       'Medians for venture-backed companies. Angel and friends-and-family rounds price far lower, and AI companies far higher.',
       table(['Round', 'Valuation', 'Source'], B.ROUND_MEDIANS.map((m) => [m.stage, moneyIn(m.currency, m.value), sourceLink(m.source)]), [1]));
@@ -983,16 +1215,16 @@
       h('div', { class: 'table-wrap' }, h('table', null,
         h('thead', null, h('tr', null, h('th', { text: 'Valuator' }), h('th', { text: 'Methods and weights' }))),
         h('tbody', null,
-          h('tr', null, h('td', { text: 'Early-stage startup' }), h('td', { text: 'Scorecard (Payne), Berkus, risk factor summation and the venture capital method, weighted equally. All four are anchored on the median pre-money valuation of comparable funded startups.' })),
+          h('tr', null, h('td', { text: 'Startup model' }), h('td', { text: 'Ten methods: scorecard (Payne), Berkus, risk factor summation, development stage, cost to duplicate, comparable companies (AI comps or sector multiples), venture capital method, First Chicago scenarios, risk-adjusted DCF and last round stepped up. Weights depend on stage. Success odds come from an outcome model fitted on 6,153 YC startups and from 2025–26 funding-funnel data; they also drive the First Chicago and DCF methods.' })),
           h('tr', null, h('td', { text: 'Tech startup' }), h('td', { text: 'Revenue multiple from a growth curve fitted to 2026 private SaaS deals, adjusted for business model, scale, retention, gross margin, Rule of 40, concentration and runway. Under $1.5M ARR it blends in an owner-earnings multiple. For a funding round, the venture capital method carries 70% of the weight.' })),
           h('tr', null, h('td', { text: 'Small & medium business' }), h('td', { text: 'Industry SDE multiple (60%), capitalised earnings with a build-up discount rate (25%) and an industry revenue multiple (15%). Above $0.5M EBITDA it shifts to size-adjusted EBITDA multiples. Seven value drivers move the multiple by up to −50% or +40%. For a UK or French business, that market’s adviser range on adjusted EBITDA is added with the same weight as the US multiple. Tangible assets set a floor; a bank-financing check shows what a buyer can borrow.' }))))));
 
     const sources = section('Sources', 'Several figures come from broker and advisor summaries of the original reports. Check the primary report before relying on any one number.',
-      h('ol', { class: 'sources' }, Object.values(B.SOURCES).map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name })))));
+      h('ol', { class: 'sources' }, [...Object.values(B.SOURCES), ...Object.values(SD.SOURCES)].map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name })))));
 
     $('#data-root').replaceChildren(
       section('Why owners are selling now', null, why),
-      sme, ebitda, uk, fr, tech, rounds, rates, methods, sources);
+      sme, ebitda, uk, fr, tech, outcomes, funnelSection, aiSection, rounds, rates, methods, sources);
   }
 
   /* ---------------------------------- boot -------------------------------- */
