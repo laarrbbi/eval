@@ -7,17 +7,13 @@
 <meta name="description" content="Value an early-stage startup, a tech startup or a small business with 2026 deal multiples.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&amp;family=Jost:wght@300;400;500;600&amp;display=swap">
 <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
 <header class="masthead">
-  <div class="wrap masthead-inner">
-    <div class="brand">
-      <p class="eyebrow">Valuation desk · market data to October 2026</p>
-      <h1>Startup &amp; SME Valuator</h1>
-      <p class="lede">See what a business could sell or raise for, priced with 2026 deal multiples from BizBuySell, Pepperdine, Software Equity Group, Carta and PitchBook.</p>
-    </div>
+  <div class="wrap topbar">
+    <p class="eyebrow">Valuation desk · market data to October 2026</p>
     <div class="currency">
       <label for="currency">Currency</label>
       <select id="currency"></select>
@@ -26,27 +22,34 @@
       <span id="fx-help" class="visually-hidden">Exchange rate used to place your figures in US size bands and to convert startup benchmarks.</span>
     </div>
   </div>
+  <div class="wrap brand">
+    <h1 class="wordmark">Startup <span class="amp">&amp;</span> SME Valuator</h1>
+    <p class="lede">What a business could raise or sell for, priced with 2026 deal data from Carta, PitchBook, Software Equity Group, BizBuySell and Pepperdine.</p>
+  </div>
   <nav class="wrap tabs" role="tablist" aria-label="Valuators">
-    <button class="tab" role="tab" id="tab-startup" aria-controls="panel-startup" aria-selected="true"><span class="tab-kicker">Pre-seed to Series C</span>Startup model</button>
-    <button class="tab" role="tab" id="tab-tech" aria-controls="panel-tech" aria-selected="false" tabindex="-1"><span class="tab-kicker">SaaS · AI · apps</span>Tech startup</button>
-    <button class="tab" role="tab" id="tab-sme" aria-controls="panel-sme" aria-selected="false" tabindex="-1"><span class="tab-kicker">Main Street to mid-market</span>Small &amp; medium business</button>
-    <button class="tab" role="tab" id="tab-data" aria-controls="panel-data" aria-selected="false" tabindex="-1"><span class="tab-kicker">Sources</span>Market data</button>
+    <button class="tab" role="tab" id="tab-startup" aria-controls="panel-startup" aria-selected="true">Startup</button>
+    <button class="tab" role="tab" id="tab-tech" aria-controls="panel-tech" aria-selected="false" tabindex="-1">Tech company</button>
+    <button class="tab" role="tab" id="tab-sme" aria-controls="panel-sme" aria-selected="false" tabindex="-1">Small business</button>
+    <button class="tab" role="tab" id="tab-data" aria-controls="panel-data" aria-selected="false" tabindex="-1">Market data</button>
+    <button class="tab" role="tab" id="tab-plans" aria-controls="panel-plans" aria-selected="false" tabindex="-1">Plans</button>
   </nav>
 </header>
 
 <main class="wrap">
   <section class="desk" id="panel-startup" role="tabpanel" aria-labelledby="tab-startup">
     <div class="panel-intro">
-      <h2>Startup model</h2>
-      <p>Ten valuation methods, the odds of raising your next round, being acquired, going public or shutting down, and AI comparables by segment. Answer what you can; every method shows what it used.</p>
+      <h2>Startup valuation</h2>
+      <p>Fourteen methods in four groups, the odds of raising your next round, exiting or shutting down, and the comparables a banker would use. Answer step by step; the estimate updates as you go.</p>
     </div>
+    <nav class="steps-nav" aria-label="Valuation steps"><ol class="steps" id="steps-startup"></ol></nav>
     <form class="inputs" id="form-startup" novalidate></form>
     <aside class="sheet" id="sheet-startup" aria-live="polite" aria-label="Startup valuation and success odds"></aside>
+    <article class="report" id="report-startup" aria-label="Valuation report" hidden></article>
   </section>
 
   <section class="desk" id="panel-tech" role="tabpanel" aria-labelledby="tab-tech" hidden>
     <div class="panel-intro">
-      <h2>Tech startup</h2>
+      <h2>Tech company</h2>
       <p>For software, AI, marketplace and other tech companies with revenue. Priced on 2026 private M&amp;A multiples, adjusted for growth, retention, margins and scale.</p>
     </div>
     <form class="inputs" id="form-tech" novalidate></form>
@@ -55,7 +58,7 @@
 
   <section class="desk" id="panel-sme" role="tabpanel" aria-labelledby="tab-sme" hidden>
     <div class="panel-intro">
-      <h2>Small &amp; medium business</h2>
+      <h2>Small business</h2>
       <p>For established businesses: shops, trades, restaurants, services, manufacturers. Priced the way brokers and buyers price them, on owner earnings or EBITDA.</p>
     </div>
     <form class="inputs" id="form-sme" novalidate></form>
@@ -64,6 +67,10 @@
 
   <section id="panel-data" role="tabpanel" aria-labelledby="tab-data" hidden>
     <div class="data-grid" id="data-root"></div>
+  </section>
+
+  <section id="panel-plans" role="tabpanel" aria-labelledby="tab-plans" hidden>
+    <div class="plans" id="plans-root"></div>
   </section>
 </main>
 

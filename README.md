@@ -1,12 +1,14 @@
 # Startup & SME Valuator
 
-Three valuation calculators in one page, priced with 2026 market data:
+Three valuation calculators in one page, priced with 2026 market data, plus a plans page:
 
 | Valuator | For | Methods |
 |---|---|---|
-| **Startup model** | Startups from pre-seed to Series C, AI or not | Ten methods (scorecard, Berkus, risk factor summation, development stage, cost to duplicate, comparables with AI comps by segment, VC method, First Chicago, risk-adjusted DCF, last round stepped up) plus success odds: next round, acquisition, IPO, shutdown |
+| **Startup** | Startups from pre-seed to Series C, AI or not | Fourteen methods in four groups, weighted by stage: scoring (scorecard, checklist, Berkus, risk factor summation, development stage), market comps (listed multiples, precedent deals, private AI rounds, last round), cash flow (two DCFs) and investor return (VC method, success-adjusted VC method, First Chicago scenario model). Plus success odds: next round, acquisition, IPO, shutdown |
 | **Tech startup** | SaaS, AI, marketplace, app and other tech companies with revenue, for a sale or a funding round | Adjusted revenue multiple from 2026 private SaaS deals, owner-earnings multiple for small software businesses, venture capital method |
 | **Small & medium business** | Shops, trades, restaurants, services, manufacturers being sold, in the US, the UK or France | Industry SDE or EBITDA multiple with seven value drivers, local adviser ranges for UK and French businesses, capitalised earnings, revenue multiple, asset floor, bank-financing check |
+
+The startup valuator is a step-by-step questionnaire (company, team, product, market, traction, three-year forecast, round and exit) that ends in a full report: how the number is built, three cross-checks (Equidam-style five-method weighting, the banker's comps range, the scenario model alone), every method's working, the scenario table, comparables, cash flows, a sensitivity table and the success odds.
 
 Each valuator shows a blended estimate, a likely range, a football-field chart of every method, the working behind each method, and warnings (for example, when a price is above what a bank will lend a buyer). **Copy summary** puts the result, key inputs and method breakdown on the clipboard as plain text, ready to paste into an email to a buyer, broker or adviser.
 
@@ -14,7 +16,11 @@ The data and every source are in [RESEARCH.md](RESEARCH.md) and on the app's **M
 
 ### Startup success odds
 
-The startup model estimates the chance of raising the next round (within 24 months and eventually), and where the company will be by its exit year: IPO, acquired, still private or shut down. Long-run outcomes come from a multinomial logistic regression fitted on **6,153 Y Combinator startups** (batches 2005–2026, snapshot 24 Oct 2026; hold-out AUC 0.75–0.84). Next-round odds start from 2025–26 Carta and PitchBook graduation rates. Both are adjusted for investors, founder track record, traction, runway and stage, and the results feed the First Chicago and DCF methods. Methods, coefficients and caveats: RESEARCH.md, sections 7–9.
+The startup valuator estimates the chance of raising the next round (within 24 months and eventually), and where the company will be by its exit year: IPO, acquired, still private or shut down. Long-run outcomes come from a multinomial logistic regression fitted on **6,153 Y Combinator startups** (batches 2005–2026, snapshot 24 Oct 2026; hold-out AUC 0.75–0.84). Next-round odds start from 2025–26 Carta and PitchBook graduation rates. Both are adjusted for investors, founder track record, traction, runway and stage, and the results feed the scenario model, the success-adjusted VC method and the DCFs. Methods, weights, coefficients and caveats: RESEARCH.md, sections 7–9.
+
+### Plans
+
+The **Plans** tab lists Essential (free), Advanced ($199), Expert ($529) and 409A ($995 a year), about half of typical online valuation platforms. The buttons are placeholders: checkout is not connected, so wire them to your payment provider before you take orders, and check that the paid features (PDF and Excel export, sharing, analyst review, 409A reports) exist before you sell them.
 
 ## Run it
 
@@ -48,10 +54,10 @@ The tests check the maths of each method and that the calibration still lands on
 index.html              page shell and tabs
 src/benchmarks.js       all market data, with a source key on every figure
 src/valuation.js        valuation engine for the SME and tech valuators (pure functions; browser and Node)
-src/startup-data.js     startup model data: fitted outcome model, funnel rates, drivers, AI comps
-src/startup-model.js    startup model engine: ten methods and success probabilities
-src/app.js              forms, live recalculation, sheet and chart rendering, market-data tab
-src/styles.css          styles (light and dark)
+src/startup-data.js     startup data: outcome model, funnel rates, drivers, AI comps, questionnaire, method weights, banker comps
+src/startup-model.js    startup engine: fourteen methods, stage-weighted groups, sensitivity and success probabilities
+src/app.js              forms, the startup wizard and report, live recalculation, charts, market data, plans
+src/styles.css          black-and-white styles (light and dark), Cinzel and Jost from Google Fonts
 scripts/build.mjs       bundles everything into one HTML file
 scripts/fit_outcome_model.py  refits the startup outcome model on the YC directory
 test/                   unit tests

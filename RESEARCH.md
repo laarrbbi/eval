@@ -339,19 +339,63 @@ Sources: [Anthropic](https://valueaddvc.com/blog/anthropic-valuation-2026-965b-s
 
 ---
 
-## 9. The ten startup valuation methods and what each needs
+## 9. The startup valuation: fourteen methods, four groups
 
-| Method | What it does | Inputs it asks for |
+The startup valuator follows the flow of the best-known online calculator (Equidam): a step-by-step questionnaire (company, team, product, market, traction, three-year forecast, round and exit), then a report. Twenty multiple-choice answers drive the scoring methods; the forecast drives the cash-flow and investor-return methods; revenue drives the comps.
+
+### 9a. The methods
+
+| Group | Method | What it does | Main inputs |
+|---|---|---|---|
+| Scoring | Scorecard | Market baseline × Equidam's six criteria (team 30%, opportunity 25%, product 15%, competition 10%, relationships 10%, funding 10%), each 50–150% of a typical funded peer | Baseline; team, market, product, IP, partner, funding answers |
+| Scoring | Checklist | Regional maximum × share of five criteria achieved (team 30%, idea 20%, product and IP 15%, relationships 15%, operating stage 20%). US maximum $17M ([Equidam](https://www.equidam.com/checklist-valuation-method/)); other markets scale it by their seed median | Same answers, plus revenue |
+| Scoring | Berkus | Up to 25% of the baseline for each of five milestones | Product stage, market, team, partners, traction |
+| Scoring | Risk factor summation | Baseline ± 12.5% per point across Payne's 12 risks; seven come straight from risk questions, five from scores | Risk answers |
+| Scoring | Development stage | Milestone ladder tied to the market's round medians | Product stage, team |
+| Market comps | Public trading comps | Next-12-months revenue × listed cloud-software multiple at your growth (Clouded Judgement 16 Oct 2026: low 3.7x, mid 7.3x, high 18.7x), × business-model factor, × (1 − 30% marketability discount), × size adjustment (0.7 at $1M to 1.0 at $1B) | Revenue, growth |
+| Market comps | Precedent acquisitions | Run-rate revenue × deal multiple ÷ 1.308 (removes the 30.8% median control premium, since a round buys a minority stake). AI: median of five large 2025–26 deals; others: private SaaS M&A multiple adjusted for growth and scale | Revenue, growth, margins |
+| Market comps | Private AI rounds | AI segment comps, scaled for size and growth, capped by stage (section 8) | Revenue, AI segment |
+| Market comps | Last round, stepped up | Last post-money × median step-up, scaled by progress | Last round |
+| Cash flow | DCF, long-term growth | Free cash flows to the exit year plus a Gordon terminal value (growth capped at 2.5%), discounted at the CAPM cost of equity (5.2% + beta × 5.0%), weighted by survival, less an illiquidity discount | Forecast, burn, mature margin |
+| Cash flow | DCF, exit multiple | Same cash flows; terminal value = exit-year EBITDA × industry EV/EBITDA (Damodaran Jan 2026: software 24.5x, electronics 20.0x, biotech 15.8x, total market 19.7x) | Same |
+| Investor return | Venture capital method | Exit value × (1 − later dilution) ÷ (1 + target return)^years − raise | Forecast, exit multiple, terms |
+| Investor return | VC method, success-adjusted | Equidam-style: exit on EBITDA × industry multiple; required multiple = 5x fund target ÷ (chance of an exit × share kept after dilution) | Forecast, outcome model |
+| Investor return | Scenario model (First Chicago) | Five outcomes in the exit year: IPO (listed multiple at exit growth), strategic sale (median large AI deal, or private M&A at exit size), smaller sale or acqui-hire (20% of a strategic sale), still private (20%), shut down (0). Probabilities from the outcome model (strategic sales are 35% of acquisitions); expected value × share kept, discounted at 30% (pre-seed) to 18% (Series C) | Forecast, outcome model |
+
+Cost to rebuild is shown as a floor and is not weighted.
+
+**Cash flows.** Years 1–3 come from the forecast; growth then slows by the fade rate each year. EBITDA moves from today's burn to the mature margin by the exit year; profits pay 25% tax.
+
+**Survival.** The lower of our outcome model (1 − chance of shutdown) and a generic survival table shaped on Equidam's sample reports (about 80% after one year, 42% after ten), because companies that closed do not always update their YC status.
+
+**Illiquidity discount.** 30% for loss-making companies (25% profitable), less 4 points per log unit of revenue in $M, kept between 10% and 40% (a simplified form of Damodaran's restricted-stock regression).
+
+### 9b. The final number
+
+Each group averages its methods (Berkus and development stage at half weight, the scenario model at 1.5). The groups are then weighted by Equidam's company stage: a pre-seed company with an idea or prototype is *Idea*, other pre-seed and pre-revenue seed companies *Development*, seed with revenue *Startup*, Series A *Expansion*, Series B and later *Growth*.
+
+| Group | Idea | Development | Startup | Expansion | Growth |
+|---|---|---|---|---|---|
+| Scoring methods | 60% | 45% | 25% | 10% | 0% |
+| Market comps | 15% | 25% | 30% | 35% | 40% |
+| Cash-flow methods | 5% | 10% | 20% | 30% | 35% |
+| Investor-return methods | 20% | 20% | 25% | 25% | 25% |
+
+A group with no usable method (for example, comps before revenue) drops out and the others are rescaled. These weights start from Equidam's published five-method weights (scorecard and checklist 38% each at Idea falling to 0% at Growth; VC method 16–20%; the two DCFs 4% each at Idea rising to 40% each at Growth), with market comps carved out the way a banker would and less weight on DCFs of founder plans, which price the plan rather than what investors pay today.
+
+**Why not probability-weight every method.** Running the whole method stack through scenarios double-counts risk: the scoring and comps methods already price a typical company's chance of failure. In the worked example (US AI coding company, seed, $1.2M run-rate, raising $4M) that approach gave about $16.5M against $24.3M for the group blend.
+
+**Cross-checks in each report.** (1) Equidam's own five-method weighting, (2) the banker's comps range, (3) the scenario model alone. For the worked example: $29M, $13.8M–$28.4M and $20.6M; final $24.3M (range $19M–$32M).
+
+**Sensitivity.** The report recomputes the final value with revenue at 70% and 130% of plan and with all market multiples 25% lower and higher.
+
+### 9c. Plans and prices
+
+| Plan | Typical online platform (Oct 2026) | This app |
 |---|---|---|
-| Scorecard (Payne) | Market baseline × weighted comparison on team, opportunity, product, competition, channels, funding need | Market baseline; seven 50–150% comparisons |
-| Berkus | Up to 25% of the baseline for each of five risk-reducing milestones | Five milestone scores |
-| Risk factor summation | Baseline ± 12.5% per point across 12 risks | Twelve −2 to +2 risk scores |
-| Development stage | Milestone ladder tied to the market's round medians (idea 0.25–0.5x pre-seed … revenue growth 0.5–1x Series A) | Furthest milestone reached |
-| Cost to duplicate | What a competitor would spend to rebuild the product | Person-months, cost per person-month, IP, assets |
-| Comparable companies | Revenue × AI segment comps (adjusted) or sector M&A multiples | Revenue run-rate, growth, gross margin, segment |
-| Venture capital method | Exit value × (1 − later dilution) ÷ (1 + target return)^years − raise | Revenue plan, exit multiple, years, target return, dilution, raise |
-| First Chicago | Scenario values (IPO, acquired, still private, shut down) × the model's probabilities, discounted | Plan, exit multiple, scenario shares, discount rate |
-| Risk-adjusted DCF | Burn fades out, target margin phases in; survival-weighted; perpetuity terminal value | Burn, plan, target margin, discount rate, long-run cost of capital and growth |
-| Last round, stepped up | Last post-money × the median step-up to the next round, scaled by progress | Last post-money, months since, progress |
+| Essential: full calculator | Free | Free |
+| Advanced: PDF and Excel report, sharing, saved versions | $412.25 | $199 |
+| Expert: analyst review, written report, call | $1,063.25 | $529 |
+| 409A valuation | $1,990 a year | $995 a year |
 
-Default weights: equal at pre-seed and seed (cost to duplicate 0.5; Berkus 0.5 once there is revenue); from Series A, comparables 1.5, scorecard and risk 0.5, development stage and cost to duplicate 0.25, Berkus 0. Median step-ups (Carta Q2 2026): pre-seed→seed 1.94x, seed→A 2.58x, A→B 1.74x; B→C 1.5x and C+ 1.3x are assumptions.
+The plans page lists these prices; checkout is not connected yet.

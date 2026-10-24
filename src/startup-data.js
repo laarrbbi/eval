@@ -43,6 +43,15 @@
     aiPremium: { name: 'Carta via Causo: AI valuation premium, 42% at seed and 30% at Series A', url: 'https://hub.causo.ai/guides/ai-startup-valuation-2026' },
     abridge: { name: 'Value Add VC: Abridge $5.3B valuation, $100M+ ARR', url: 'https://valueaddvc.com/blog/abridge-valuation-2026-5-3b-100m-arr-and-how-the-ai-scribe-beat-nuance-and-ambience' },
     ambience: { name: 'Ambience Healthcare $1.25B Series C, ~$30M ARR (2025 estimate)', url: 'https://medium.com/@Connected_Dots/ambience-and-harvey-valuations-an-openai-ipo-proxy-strategy-and-did-microsoft-screw-abridge-b056cb7acf20' },
+    equidamMethods: { name: 'Equidam, the five startup valuation methods and how to weight them', url: 'https://www.equidam.com/five-startup-valuation-methods/' },
+    equidamChecklist: { name: 'Equidam, checklist method (US maximum $17M)', url: 'https://www.equidam.com/checklist-valuation-method/' },
+    equidamVc: { name: 'Equidam, required returns of the VC method', url: 'https://www.equidam.com/resources/equidam-vc-method-paper.pdf' },
+    equidamDcf: { name: 'Equidam, DCF methods, survival rates and illiquidity', url: 'https://support.equidam.com/en/articles/2064097-dcf-methods' },
+    damodaranEbitda: { name: 'Damodaran EV/EBITDA by industry, US, Jan 2026 (via secondary tables)', url: 'https://www.calcmastery.com/benchmarks/ev-ebitda-by-industry/' },
+    cloudedJudgement: { name: 'Clouded Judgement 10.16.26: public cloud EV / NTM revenue', url: 'https://cloudedjudgement.substack.com/p/clouded-judgement-101626-the-diffusion' },
+    aiExits2026: { name: 'Biggest AI startup exits of 2026 (Tech Startups)', url: 'https://techstartups.com/2026/10/14/the-biggest-ai-startup-exits-of-2026-how-nvidia-meta-google-and-openai-are-buying-the-future-of-ai/' },
+    windsorAi: { name: 'Windsor Drake, AI software valuations Q1 2026', url: 'https://windsordrake.com/market-intelligence/reports/ai-software-valuations-q1-2026' },
+    dlomStudies: { name: 'Restricted-stock studies on marketability discounts (Sofer Advisors)', url: 'https://soferadvisors.com/insights/blog/dlom-and-restricted-stock-studies-sizing-the-discount/' },
     segPublic: { name: 'Software Equity Group 2Q26: public SaaS index 3.2x', url: 'https://sandhill.com/wp-content/uploads/2026/08/SEG-Research-2Q26-SaaS-MA-and-Public-Market-Report.pdf' },
   };
 
@@ -247,6 +256,169 @@
     stageRange: { seed: [10, 25], seriesA: [15, 30], seriesB: [25, 50] },
   };
 
+
+  /* ------------------------------------------------------------------ */
+  /* 5. Questionnaire: multiple-choice answers that drive the scoring    */
+  /*    methods (scorecard, checklist, Berkus, risk factor summation)    */
+  /* ------------------------------------------------------------------ */
+
+  // Each option carries a score in [0, 1] (higher is better for an investor) or, for
+  // risk questions, a risk-factor-summation point in [-2, +2].
+  const QUESTIONS = {
+    team: [
+      { key: 'founders', label: 'How many founders work on the company?', options: [
+        { value: 'one', label: 'One founder', score: 0.4 }, { value: 'two', label: 'Two', score: 0.8 }, { value: 'three', label: 'Three or more', score: 1 }] , default: 'two' },
+      { key: 'fulltime', label: 'Are the founders full-time?', options: [
+        { value: 'all', label: 'All full-time', score: 1 }, { value: 'some', label: 'Some of them', score: 0.6 }, { value: 'none', label: 'Not yet', score: 0.2 }], default: 'all' },
+      { key: 'experience', label: 'Founders’ years of experience in this industry', options: [
+        { value: 'lt2', label: 'Under 2', score: 0.2 }, { value: '2to5', label: '2 to 5', score: 0.5 }, { value: '5to10', label: '5 to 10', score: 0.8 }, { value: 'gt10', label: 'Over 10', score: 1 }], default: '5to10' },
+      { key: 'technical', label: 'Is there a technical co-founder or CTO?', options: [
+        { value: 'yes', label: 'Yes, in the founding team', score: 1 }, { value: 'hire', label: 'Hired, not a founder', score: 0.6 }, { value: 'outsourced', label: 'Outsourced', score: 0.25 }, { value: 'no', label: 'No', score: 0.1 }], default: 'yes' },
+      { key: 'roles', label: 'Are the key roles filled (product, engineering, sales)?', options: [
+        { value: 'all', label: 'All of them', score: 1 }, { value: 'most', label: 'Most', score: 0.7 }, { value: 'few', label: 'Few', score: 0.3 }], default: 'most' },
+    ],
+    product: [
+      { key: 'stage', label: 'Where is the product today?', options: [
+        { value: 'idea', label: 'Idea or concept', score: 0.1 }, { value: 'prototype', label: 'Working prototype', score: 0.35 }, { value: 'mvp', label: 'MVP with first users', score: 0.55 },
+        { value: 'paying', label: 'Launched, paying customers', score: 0.8 }, { value: 'scaling', label: 'Scaling with repeatable sales', score: 1 }], default: 'paying' },
+      { key: 'ip', label: 'How is the technology protected?', options: [
+        { value: 'none', label: 'Nothing specific', score: 0.1 }, { value: 'secret', label: 'Proprietary data or trade secrets', score: 0.55 }, { value: 'pending', label: 'Patents filed', score: 0.7 }, { value: 'granted', label: 'Patents granted', score: 1 }], default: 'secret' },
+      { key: 'techRisk', label: 'How much technical risk is left?', risk: 'technology', options: [
+        { value: 'proven', label: 'Technology proven in use', point: 1 }, { value: 'some', label: 'Some R&D left', point: 0 }, { value: 'heavy', label: 'Heavy R&D ahead', point: -1 }, { value: 'science', label: 'Unproven science', point: -2 }], default: 'some' },
+      { key: 'regulation', label: 'How exposed are you to regulation?', risk: 'legislation', options: [
+        { value: 'none', label: 'Barely', point: 1 }, { value: 'some', label: 'Some rules apply', point: 0 }, { value: 'licence', label: 'Licences or approvals needed', point: -1 }, { value: 'unclear', label: 'Rules unclear or changing', point: -2 }], default: 'some' },
+      { key: 'supply', label: 'How much do you depend on manufacturing or suppliers?', risk: 'manufacturing', options: [
+        { value: 'none', label: 'Not at all (software)', point: 1 }, { value: 'some', label: 'Some suppliers matter', point: 0 }, { value: 'heavy', label: 'Heavily', point: -1 }], default: 'none' },
+      { key: 'legal', label: 'Any legal disputes or open IP claims?', risk: 'litigation', options: [
+        { value: 'clean', label: 'None, IP assigned to the company', point: 1 }, { value: 'minor', label: 'Minor', point: 0 }, { value: 'open', label: 'Open disputes', point: -2 }], default: 'clean' },
+    ],
+    market: [
+      { key: 'tam', label: 'How big is the target market?', options: [
+        { value: 's', label: 'Under $100M', score: 0.2 }, { value: 'm', label: '$100M to $1B', score: 0.5 }, { value: 'l', label: '$1B to $10B', score: 0.8 }, { value: 'xl', label: 'Over $10B', score: 1 }], default: 'xl' },
+      { key: 'competition', label: 'What does the competition look like?', options: [
+        { value: 'few', label: 'Few, small competitors', score: 0.8 }, { value: 'none', label: 'No direct competitor yet', score: 0.65 }, { value: 'incumbents', label: 'Strong incumbents', score: 0.4 }, { value: 'crowded', label: 'Crowded market', score: 0.2 }], default: 'crowded' },
+      { key: 'moat', label: 'What sets you apart?', options: [
+        { value: 'little', label: 'Not much yet', score: 0.2 }, { value: 'product', label: 'A better product', score: 0.5 }, { value: 'tech', label: 'Technology or data advantage', score: 0.8 }, { value: 'network', label: 'Network effects or strong lock-in', score: 1 }], default: 'tech' },
+      { key: 'partners', label: 'Strategic partners?', options: [
+        { value: 'none', label: 'None', score: 0 }, { value: 'talks', label: 'In talks', score: 0.25 }, { value: 'pilots', label: 'Pilots or letters of intent', score: 0.5 }, { value: 'signed', label: 'Signed with major players', score: 1 }], default: 'talks' },
+      { key: 'gtm', label: 'How do you sell?', options: [
+        { value: 'untested', label: 'Channels not tested yet', score: 0.2 }, { value: 'first', label: 'One channel working', score: 0.5 }, { value: 'repeatable', label: 'A repeatable channel', score: 0.8 }, { value: 'several', label: 'Several scalable channels', score: 1 }], default: 'repeatable' },
+      { key: 'international', label: 'Where do you operate?', risk: 'international', options: [
+        { value: 'home', label: 'One country', point: 1 }, { value: 'some', label: 'A few countries', point: 0 }, { value: 'many', label: 'Many countries already', point: -1 }], default: 'some' },
+      { key: 'reputation', label: 'Reputation and references', risk: 'reputation', options: [
+        { value: 'strong', label: 'Strong references or press', point: 1 }, { value: 'neutral', label: 'Little known yet', point: 0 }, { value: 'issues', label: 'Some issues', point: -2 }], default: 'neutral' },
+      { key: 'exit', label: 'Who could buy the company one day?', risk: 'exit', options: [
+        { value: 'many', label: 'Many strategic buyers, IPO possible', point: 2 }, { value: 'several', label: 'Several strategic buyers', point: 1 }, { value: 'few', label: 'Few obvious buyers', point: -1 }], default: 'several' },
+      { key: 'funding', label: 'How much more capital do you need to reach profit?', options: [
+        { value: 'none', label: 'This round gets us there', score: 1 }, { value: 'one', label: 'One more round', score: 0.6 }, { value: 'several', label: 'Several rounds', score: 0.35 }, { value: 'heavy', label: 'A lot (capital-intensive)', score: 0.1 }], default: 'several' },
+    ],
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 6. Equidam-style methods                                            */
+  /* ------------------------------------------------------------------ */
+
+  const EQUIDAM = {
+    // Default method weights by stage (Equidam 2024-26 reports).
+    weights: {
+      idea: { scorecard: 0.38, checklist: 0.38, vcEquidam: 0.16, dcfLtg: 0.04, dcfMultiple: 0.04 },
+      development: { scorecard: 0.30, checklist: 0.30, vcEquidam: 0.16, dcfLtg: 0.12, dcfMultiple: 0.12 },
+      startup: { scorecard: 0.15, checklist: 0.15, vcEquidam: 0.16, dcfLtg: 0.27, dcfMultiple: 0.27 },
+      expansion: { scorecard: 0.06, checklist: 0.06, vcEquidam: 0.16, dcfLtg: 0.36, dcfMultiple: 0.36 },
+      growth: { scorecard: 0, checklist: 0, vcEquidam: 0.20, dcfLtg: 0.40, dcfMultiple: 0.40 },
+    },
+    stageLabels: { idea: 'Idea', development: 'Development', startup: 'Startup', expansion: 'Expansion', growth: 'Growth' },
+    // Scorecard: six criteria (Equidam methodology).
+    scorecardWeights: { team: 0.30, opportunity: 0.25, product: 0.15, competition: 0.10, relationships: 0.10, funding: 0.10 },
+    // Checklist: five criteria against a regional maximum; US maximum $17M (Equidam, 2026 cycle).
+    checklistWeights: { team: 0.30, idea: 0.20, product: 0.15, relationships: 0.15, operatingStage: 0.20 },
+    checklistMaxUsd: 17000000,
+    checklistMaxRatioToSeed: 17000000 / 19400000,
+    // VC method: required multiple = fund target / (success rate x retention).
+    fundTarget: 5,
+    // Generic survival by company age (years 1-10), shaped on Equidam's sample reports (~80% year 1, ~42% year 10).
+    survival: [0.80, 0.70, 0.62, 0.57, 0.53, 0.50, 0.48, 0.46, 0.44, 0.42],
+    longTermGrowthCap: 0.025,
+    // Illiquidity discount on the DCFs: base less 4 points per log unit of revenue ($M),
+    // smaller when profitable (Damodaran's restricted-stock regression, simplified).
+    illiquidity: { lossMaking: 0.30, profitable: 0.25, perLnRevenue: 0.04 },
+    illiquidityBounds: [0.10, 0.40],
+    riskFree: 0.052,          // 10-year Treasury, Oct 2026
+    equityRiskPremium: 0.05,  // Kroll
+  };
+
+  // Cost-of-equity beta and exit EV/EBITDA by business model (Damodaran, US, Jan 2026 where available).
+  const MODEL_FINANCE = {
+    saas: { beta: 1.2, exitEbitda: 24.48, basis: 'Damodaran: software (system and application)' },
+    marketplace: { beta: 1.2, exitEbitda: 19.73, basis: 'Damodaran: US total market (no industry figure found)' },
+    fintech: { beta: 1.2, exitEbitda: 19.73, basis: 'Damodaran: US total market (no industry figure found)' },
+    consumer: { beta: 1.15, exitEbitda: 19.73, basis: 'Damodaran: US total market (no industry figure found)' },
+    hardware: { beta: 1.3, exitEbitda: 19.99, basis: 'Damodaran: electronics (general)' },
+    ecommerce: { beta: 1.1, exitEbitda: 19.73, basis: 'Damodaran: US total market (no industry figure found)' },
+    services: { beta: 1.0, exitEbitda: 19.73, basis: 'Damodaran: US total market (no industry figure found)' },
+    biotech: { beta: 1.3, exitEbitda: 15.78, basis: 'Damodaran: biotechnology' },
+    ai: { beta: 1.3, exitEbitda: 24.48, basis: 'Damodaran: software (system and application)' },
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 7. Investment-banking comps                                         */
+  /* ------------------------------------------------------------------ */
+
+  const IB = {
+    // Public cloud software, EV / next-12-months revenue, Clouded Judgement 16 Oct 2026.
+    trading: { overall: 4.5, low: 3.7, mid: 7.3, high: 18.7, top5: 34.5, asOf: '16 Oct 2026' },
+    // Growth (next 12 months, %) to multiple: low-growth below ~10%, mid ~20%, high above ~35%.
+    tradingCurve: [[10, 3.7], [20, 7.3], [35, 18.7]],
+    // Precedent acquisitions, EV / run-rate revenue at announcement (include a control premium).
+    precedents: [
+      { deal: 'SpaceX – Cursor (Anysphere)', year: 2026, ev: 60e9, revenue: 4e9, note: 'reported; status unclear' },
+      { deal: 'Google – Wiz', year: 2025, ev: 32e9, revenue: 1e9, note: 'cloud security' },
+      { deal: 'Google – Windsurf (licence and team)', year: 2025, ev: 2.4e9, revenue: 0.082e9, note: 'low-reliability revenue figure' },
+      { deal: 'IBM – Confluent', year: 2026, ev: 12.65e9, revenue: 12.65e9 / 9.6, note: 'data infrastructure' },
+      { deal: 'Salesforce – Informatica', year: 2025, ev: 8e9, revenue: 1.6e9, note: 'revenue approximate' },
+    ],
+    precedentBenchmarks: [
+      { label: 'LLM and generative AI assets, M&A (Q1 2026)', value: '12–20x revenue' },
+      { label: 'Enterprise AI applications, M&A (Q1 2026)', value: '3–6x revenue' },
+      { label: 'Private SaaS M&A median (2Q26)', value: '4.0x revenue' },
+    ],
+    // Private SaaS M&A distribution (SEG 2Q26: median 4.0x, average 6.2x, 62.5% below 4.0x).
+    saasMa: { q25: 2.5, q50: 4.0, q75: 6.2 },
+    // Listed comps are $1B+ companies; smaller private companies carry more risk (assumption,
+    // in the spirit of size premiums), applied on next-12-months revenue in USD.
+    sizeAdjust: [[1e6, 0.7], [1e7, 0.8], [1e8, 0.9], [1e9, 1.0]],
+    dlom: 0.30,            // restricted-stock studies: 20-35%
+    controlPremium: 0.308, // FactSet/BVR US median, Q2 2025 (secondary)
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* 8. Final valuation: four groups, weighted by stage                  */
+  /* ------------------------------------------------------------------ */
+
+  // Equidam's schedule moved into four groups, with a market (comps) group carved out
+  // the way a banker would. DCFs of founder plans get less weight than in Equidam,
+  // because they price the plan rather than what investors pay today.
+  const PILLAR_WEIGHTS = {
+    idea: { qualitative: 0.60, market: 0.15, intrinsic: 0.05, investor: 0.20 },
+    development: { qualitative: 0.45, market: 0.25, intrinsic: 0.10, investor: 0.20 },
+    startup: { qualitative: 0.25, market: 0.30, intrinsic: 0.20, investor: 0.25 },
+    expansion: { qualitative: 0.10, market: 0.35, intrinsic: 0.30, investor: 0.25 },
+    growth: { qualitative: 0, market: 0.40, intrinsic: 0.35, investor: 0.25 },
+  };
+  const PILLARS = [
+    { key: 'qualitative', label: 'Scoring methods', methods: { scorecard: 1, checklist: 1, berkus: 0.5, risk: 1, devStage: 0.5 } },
+    { key: 'market', label: 'Market comps', methods: { trading: 1, precedents: 1, privateRounds: 1, lastRound: 1 } },
+    { key: 'intrinsic', label: 'Cash-flow methods', methods: { dcfLtg: 1, dcfMultiple: 1 } },
+    { key: 'investor', label: 'Investor-return methods', methods: { vc: 1, vcEquidam: 1, scenario: 1.5 } },
+  ];
+
+  // Scenario model (PWERM) defaults. The discount rate is below VC target returns because
+  // failure is already in the probabilities; it falls as the company matures.
+  const SCENARIO = {
+    discountRate: { preseed: 0.30, seed: 0.25, seriesA: 0.22, seriesB: 0.20, seriesC: 0.18 },
+    strategicShare: 0.35, smallSaleShare: 0.2, privateShare: 0.2,
+  };
+
   return {
     SOURCES,
     OUTCOME_MODEL,
@@ -262,5 +434,12 @@
     PUBLIC_AI_COMPS,
     AI_AGGREGATES,
     AI_COMP_ADJUST,
+    QUESTIONS,
+    EQUIDAM,
+    MODEL_FINANCE,
+    IB,
+    PILLAR_WEIGHTS,
+    PILLARS,
+    SCENARIO,
   };
 });

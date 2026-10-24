@@ -72,55 +72,141 @@ test('AI comps: segment median, scale discount and growth adjustment', () => {
   close(c.applied, c.median * 0.6);
 });
 
-test('revenue plan grows from current ARR and fades growth', () => {
-  const p = S.revenuePlan({ arr: 1000000, growth: 100, growth2: 50, fade: 20, years: 3 });
+test('revenue plan uses the three-year forecast, then fades growth', () => {
+  const p = S.revenuePlan({ arr: 1000000, growth: 100, rev1: 2000000, rev2: 3000000, fade: 20, years: 4 });
   close(p.rows[0].revenue, 2000000);
   close(p.rows[1].revenue, 3000000);
-  close(p.rows[2].revenue, 3000000 * 1.4);
+  close(p.rows[2].revenue, 3000000 * (1 + 0.5 * 0.8));
+  close(p.rows[3].revenue, p.rows[2].revenue * (1 + 0.5 * 0.8 * 0.8));
+  close(p.ntmGrowth, 1);
+  const noForecast = S.revenuePlan({ arr: 1000000, growth: 100, fade: 20, years: 2 });
+  close(noForecast.rows[0].revenue, 1000000 * 1.8);
+  assert.equal(S.revenuePlan({ arr: 0, years: 5 }).exitRevenue, 0);
+});
+
+test('questionnaire: scores stay in [0, 1] and better answers score higher', () => {
+  const base = S.scoresFromAnswers({});
+  for (const k of ['team', 'product', 'ip', 'tam', 'competition', 'moat', 'partners', 'gtm', 'funding']) {
+    assert.ok(base[k] >= 0 && base[k] <= 1, k);
+  }
+  const strong = S.scoresFromAnswers({ founders: 'three', experience: 'gt10', roles: 'all' }, { founder: 'exit' });
+  assert.ok(strong.team > base.team);
+  assert.equal(base.risks.technology, 0);
+  assert.equal(S.scoresFromAnswers({ techRisk: 'science' }).risks.technology, -2);
+});
+
+test('Equidam stage follows the round, the product and revenue', () => {
+  assert.equal(S.equidamStage('preseed', 'idea', 0), 'idea');
+  assert.equal(S.equidamStage('preseed', 'mvp', 0), 'development');
+  assert.equal(S.equidamStage('seed', 'paying', 0), 'development');
+  assert.equal(S.equidamStage('seed', 'paying', 100000), 'startup');
+  assert.equal(S.equidamStage('seriesA', 'scaling', 1e6), 'expansion');
+  assert.equal(S.equidamStage('seriesC', 'scaling', 1e7), 'growth');
+});
+
+test('illiquidity discount falls with revenue and stays within bounds', () => {
+  const [lo, hi] = D.EQUIDAM.illiquidityBounds;
+  const small = S.illiquidityDiscount(0, false);
+  const mid = S.illiquidityDiscount(5e6, false);
+  const big = S.illiquidityDiscount(5e9, true);
+  assert.ok(small > mid && mid > big);
+  assert.ok(small <= hi && big >= lo);
 });
 
 const seedInput = {
   stage: 'seed', ageYears: 1.5, industry: 'B2B', model: 'saas', aiSegment: 'coding', hq: 'us',
   baseline: 19400000, raise: 4000000, arr: 1200000, growth: 250, grossMargin: 65, ebitdaMargin: -120,
   investors: 'top', founder: 'first', traction: 'strong', runwayMonths: 18, monthlyBurn: 250000,
-  rev1: 3000000, growth2: 150, fade: 25, targetMargin: 20, yearsToExit: 7, discountRate: 20,
-  personMonths: 60, costPerMonth: 18000, otherAssets: 20000, devStage: 4,
-  lastPost: 12000000, monthsSinceLast: 14, progress: 'milestones',
-  scorecard: {}, berkus: { idea: 1 }, risks: {},
+  rev1: 3000000, rev2: 6500000, rev3: 12000000, fade: 25, targetMargin: 25, yearsToExit: 7,
+  personMonths: 60, costPerMonth: 18000, otherAssets: 20000,
+  lastPost: 12000000, monthsSinceLast: 14, progress: 'milestones', answers: {},
 };
+const byKey = (r, k) => r.methods.find((m) => m.key === k);
 
-test('startup model: all ten methods run and the blend sits inside the method range', () => {
+test('startup model: fourteen methods in four groups, shares sum to one', () => {
   const r = S.valueStartupModel(seedInput);
   assert.deepEqual(r.methods.map((m) => m.key), S.METHOD_KEYS);
-  const used = r.methods.filter((m) => !m.skipped && m.share > 0);
-  assert.equal(used.length, 10);
+  const used = r.methods.filter((m) => m.share > 0);
+  assert.equal(used.length, 14);
   close(used.reduce((s, m) => s + m.share, 0), 1);
+  close(r.pillars.reduce((s, P) => s + P.share * P.value, 0), r.mid);
   const vals = used.map((m) => m.value);
   assert.ok(r.mid >= Math.min(...vals) && r.mid <= Math.max(...vals));
+  assert.ok(r.low < r.mid && r.mid < r.high);
 });
 
-test('startup model: development stage ladder and last-round step-up', () => {
+test('startup model: group weights follow the Equidam stage', () => {
   const r = S.valueStartupModel(seedInput);
-  close(r.methods.find((m) => m.key === 'devStage').value, 19400000); // early customers = 0.8-1.2x the seed median
-  close(r.methods.find((m) => m.key === 'lastRound').value, 12000000 * D.STEP_UPS.seed);
+  assert.equal(r.equidamStage, 'startup');
+  for (const P of r.pillars) close(P.share, D.PILLAR_WEIGHTS.startup[P.key]);
+  const pre = S.valueStartupModel({ ...seedInput, stage: 'preseed', arr: 0, lastPost: 0, answers: { stage: 'idea' } });
+  assert.equal(pre.equidamStage, 'idea');
+  assert.equal(pre.pillars.find((P) => P.key === 'market').share, 0);
+  close(pre.pillars.reduce((s, P) => s + P.share, 0), 1);
 });
 
-test('startup model: AI comps never exceed the stage cap', () => {
-  const r = S.valueStartupModel({ ...seedInput, aiSegment: 'vertical', arr: 50000000, growth: 300 });
-  const comps = r.methods.find((m) => m.key === 'comps');
-  assert.ok(comps.value <= 50000000 * D.AI_COMP_ADJUST.stageCap.seed + 1);
+test('startup model: weight overrides drop a method or a whole group', () => {
+  const r = S.valueStartupModel({ ...seedInput, weights: { dcfMultiple: 0 }, pillarWeights: { qualitative: 0 } });
+  assert.equal(byKey(r, 'dcfMultiple').share, 0);
+  assert.equal(r.pillars.find((P) => P.key === 'qualitative').share, 0);
+  close(r.methods.reduce((s, m) => s + m.share, 0), 1);
 });
 
-test('startup model: DCF terminal value is a perpetuity on target cash flow', () => {
-  const r = S.valueStartupModel({ ...seedInput, matureRate: 12, terminalGrowth: 3 });
-  const dcf = r.methods.find((m) => m.key === 'dcf');
-  const tv = dcf.detail.find((d) => d.label.startsWith('Terminal value')).amount;
-  close(tv, (r.plan.exitRevenue * 0.2 * 1.03) / 0.09);
+test('startup model: reconciliation applies Equidam weights to its five methods', () => {
+  const r = S.valueStartupModel(seedInput);
+  const w = D.EQUIDAM.weights.startup;
+  const keys = Object.keys(w);
+  const expected = keys.reduce((s, k) => s + w[k] * byKey(r, k).value, 0) / keys.reduce((s, k) => s + w[k], 0);
+  close(r.reconciliation.equidam, expected);
+  close(r.reconciliation.scenario, byKey(r, 'scenario').value);
+});
+
+test('startup model: checklist maximum is $17M in the US and the value stays below it', () => {
+  const r = S.valueStartupModel(seedInput);
+  const ck = byKey(r, 'checklist');
+  close(ck.detail.find((d) => d.label.startsWith('Maximum')).amount, 17000000);
+  assert.ok(ck.value < 17000000);
+});
+
+test('startup model: success-adjusted VC method divides the fund target by success and retention', () => {
+  const r = S.valueStartupModel(seedInput);
+  const p = r.longRun.probs.Acquired + r.longRun.probs.Public;
+  const dil = 0.4; // seed default
+  const exit = r.plan.exitRevenue * 0.25 * D.MODEL_FINANCE.ai.exitEbitda;
+  close(byKey(r, 'vcEquidam').value, (exit * p * (1 - dil)) / D.EQUIDAM.fundTarget - seedInput.raise);
+});
+
+test('startup model: long-term-growth DCF caps growth at 2.5%', () => {
+  const r = S.valueStartupModel({ ...seedInput, terminalGrowth: 6 });
+  const tv = byKey(r, 'dcfLtg').detail.find((d) => d.label.startsWith('Terminal value')).amount;
+  const ebitda = r.plan.exitRevenue * 0.25;
+  close(tv, (ebitda * 0.75 * 1.025) / (r.costOfEquity - 0.025));
+});
+
+test('startup model: scenario probabilities sum to one and price the expected exit', () => {
+  const r = S.valueStartupModel(seedInput);
+  const sc = r.scenario;
+  close(sc.rows.reduce((s, x) => s + x.p, 0), 1);
+  close(sc.value, (sc.expected * (1 - sc.dilution)) / Math.pow(1 + sc.discountRate, sc.years) - seedInput.raise);
+  close(sc.discountRate, D.SCENARIO.discountRate.seed);
+});
+
+test('startup model: last-round step-up and AI round cap', () => {
+  const r = S.valueStartupModel(seedInput);
+  close(byKey(r, 'lastRound').value, 12000000 * D.STEP_UPS.seed);
+  const big = S.valueStartupModel({ ...seedInput, aiSegment: 'vertical', arr: 50000000, growth: 300 });
+  assert.ok(byKey(big, 'privateRounds').value <= 50000000 * D.AI_COMP_ADJUST.stageCap.seed + 1);
 });
 
 test('startup model: pre-revenue company skips revenue-based methods cleanly', () => {
-  const r = S.valueStartupModel({ ...seedInput, arr: 0, rev1: 0, aiSegment: '', lastPost: 0 });
-  assert.ok(r.methods.find((m) => m.key === 'comps').skipped);
-  assert.ok(r.methods.find((m) => m.key === 'lastRound').skipped);
+  const r = S.valueStartupModel({ ...seedInput, arr: 0, rev1: 0, rev2: 0, rev3: 0, aiSegment: '', lastPost: 0 });
+  for (const k of ['trading', 'precedents', 'privateRounds', 'lastRound', 'dcfLtg', 'vc', 'scenario']) assert.ok(byKey(r, k).skipped, k);
   assert.ok(r.mid > 0);
+});
+
+test('sensitivity: value rises with the plan and with market multiples', () => {
+  const s = S.sensitivity(seedInput);
+  close(s.grid[1][1], S.valueStartupModel(seedInput).mid);
+  assert.ok(s.grid[0][1] < s.grid[1][1] && s.grid[1][1] < s.grid[2][1]);
+  assert.ok(s.grid[1][0] < s.grid[1][1] && s.grid[1][1] < s.grid[1][2]);
 });
