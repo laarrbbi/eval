@@ -70,6 +70,18 @@
       name: 'BusinessValuation.co.uk, UK SME valuation multiples by sector (H2 2026)',
       url: 'https://www.businessvaluation.co.uk/uk-sme-valuation-multiples-guide',
     },
+    frDealsuite: {
+      name: 'Dealsuite SME M&A Monitor, via cession-entreprise.com (France, 2026)',
+      url: 'https://www.cession-entreprise.com/valorisation/multiples-ebitda-secteur-pme-2026/',
+    },
+    frSize: {
+      name: 'Financyal, multiples d’EBITDA 2026 par taille (France)',
+      url: 'https://financyal.fr/multiple-ebitda-valorisation-2026/',
+    },
+    frHayot: {
+      name: 'Hayot Expertise, business valuation 2026 (France)',
+      url: 'https://hayot-expertise.fr/en/guides/evaluation-entreprise-baremes-methodes-2026',
+    },
     saasCapital: {
       name: 'SaaS Capital private SaaS valuations 2025 (via Eqvista)',
       url: 'https://eqvista.com/saas-valuation-multiples/',
@@ -329,9 +341,30 @@
   };
   // Band blend between these adjusted-EBITDA levels (GBP).
   const UK_BAND_SPLIT = [750000, 1250000];
+
+  // France: ranges on normalised EBE (the French EBITDA). Adviser guidance.
+  // Sector ranges where sources give one; every other industry uses the size tiers.
+  const FR_SME_BANDS = {
+    construction: { sector: 'BTP (construction)', band: [3.0, 5.0], source: 'frDealsuite' },
+    services: { sector: 'Services peu différenciés', band: [3.0, 5.0], source: 'frDealsuite' },
+    manufacturing: { sector: 'Industrie', band: [4.0, 7.0], source: 'frDealsuite' },
+    wholesale: { sector: 'Distribution', band: [4.0, 7.0], source: 'frDealsuite' },
+    restaurants: { sector: 'Restauration', band: [2.5, 4.5], source: 'frHayot' },
+    retail: { sector: 'Commerce de détail', band: [2.5, 4.5], source: 'frHayot' },
+  };
+  // Size tiers [EBE in EUR at the tier midpoint, low, high]: TPE under €500K,
+  // petite PME €500K-€1.5M, moyenne PME €1.5M-€5M (frSize).
+  const FR_SIZE_BANDS = [
+    [250000, 3.8, 4.8],
+    [1000000, 4.5, 5.8],
+    [3250000, 5.5, 7.2],
+  ];
+  const FR_MARKET = { adviserAverageH2_2025: 5.25, typical2026: 5.5 };
+
   const SME_MARKETS = [
     { key: 'us', label: 'United States' },
-    { key: 'uk', label: 'United Kingdom' },
+    { key: 'uk', label: 'United Kingdom', currency: 'GBP', methodLabel: 'UK sector range', country: 'UK' },
+    { key: 'fr', label: 'France', currency: 'EUR', methodLabel: 'France SME range', country: 'French' },
   ];
 
   /* ------------------------------------------------------------------ */
@@ -576,6 +609,9 @@
     SME_DRIVER_LIMITS,
     UK_SME_BANDS,
     UK_BAND_SPLIT,
+    FR_SME_BANDS,
+    FR_SIZE_BANDS,
+    FR_MARKET,
     SME_MARKETS,
     RATES,
     SIZE_PREMIUM_CURVE,

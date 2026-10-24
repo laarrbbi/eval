@@ -139,6 +139,25 @@ UK base rate: the Bank of England held Bank Rate at 3.75% on 30 July 2026; I cou
 
 No GBP sale-price statistics (Daltons, BusinessesForSale.com Barometer) were reachable, so there is no UK equivalent of BizBuySell's median sale price.
 
+### France: small and medium businesses (PME / TPE)
+
+Indicative ranges on **normalised EBE** (excédent brut d'exploitation, the French EBITDA, after resetting the owner's pay to a market salary). Adviser guidance, not a transaction database.
+
+| Benchmark | Value | Source |
+|---|---|---|
+| Average multiple reported by M&A advisers, H2 2025 | 5.25x EBITDA | Dealsuite via [cession-entreprise.com](https://www.cession-entreprise.com/valorisation/multiples-ebitda-secteur-pme-2026/) |
+| Typical multiple, 2026 | about 5.5x | [Extencia](https://www.extencia.fr/marche-ma-pme-france-2026), [Financyal](https://financyal.fr/multiple-ebitda-valorisation-2026/) |
+| TPE, EBE under €500K | 3.8x–4.8x | [Financyal](https://financyal.fr/multiple-ebitda-valorisation-2026/) |
+| Petite PME, €500K–€1.5M | 4.5x–5.8x | same |
+| Moyenne PME, €1.5M–€5M | 5.5x–7.2x | same |
+| Construction (BTP) and low-differentiation services | 3x–5x | Dealsuite via [cession-entreprise.com](https://www.cession-entreprise.com/valorisation/multiples-ebitda-secteur-pme-2026/) |
+| Industry and distribution | 4x–7x | same |
+| Software publishers | 8x–15x | same |
+| Restaurants and some retail | 2.5x–4.5x | [Hayot Expertise](https://hayot-expertise.fr/en/guides/evaluation-entreprise-baremes-methodes-2026) |
+| Traditional SMEs, most sectors | 4x–7x | same |
+
+In the valuator, construction, general services, manufacturing, wholesale, restaurants and retail use their sector range; every other industry uses the TPE / PME size tiers, interpolated between tier midpoints so there is no jump at €500K or €1.5M. Sources disagree at the edges (construction is quoted anywhere from 2.5x to 5x), and dependence on the owner above about 40% of revenue weighs heavily on the multiple. For a real French deal, cross-check with observed transactions (Fusacq, Dealsuite, Epsilon Research), which this environment could not reach.
+
 ### Discount-rate inputs (income approach)
 
 | Input | Value | Source |
@@ -215,6 +234,7 @@ Sources: [WaveUp methods guide](https://waveup.com/blog/startup-valuation-method
 | Currency rates | EUR 0.86, GBP 0.75, CAD 1.38, AUD 1.52, CHF 0.80, AED 3.6725, MAD 9.2 per USD | Approximate; used only for size bands and to convert startup baselines. Editable in the app. |
 | Pre-seed baselines where only seed is published | seed × 0.625 | Carta's 2025 ratio of the $10M pre-seed SAFE cap to the $16M seed pre-money. Used for Europe, UK and "US outside SF and NYC". |
 | UK band position | middle of the band, moved by the value-driver total (−50% → bottom, +40% → 90% of the way up) | The adviser says recurring revenue, concentration and owner dependence set the position within a band. |
-| UK method weight | equal to the US multiple method | US figures are deal data; UK figures are adviser ranges. Equal weight balances local relevance against data quality. |
+| UK and France method weight | equal to the US multiple method | US figures are deal data; UK and French figures are adviser ranges. Equal weight balances local relevance against data quality. |
+| UK and France band position | middle of the band, moved by the value-driver total | Same rule for both markets. |
 
 To update any figure, edit `src/benchmarks.js`; the tests in `test/valuation.test.js` check that the calibration still lands on the published medians.

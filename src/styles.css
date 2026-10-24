@@ -680,6 +680,28 @@ main { padding-block: 28px 64px; }
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 .sheet-foot { margin: 0; font-size: 0.75rem; color: var(--muted); }
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+.summary-text {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  resize: vertical;
+}
 
 /* ------------------------------ market data ------------------------------ */
 

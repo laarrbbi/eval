@@ -355,6 +355,33 @@
 
   /* ----------------------- small and medium business ---------------- */
 
+  // Multiple range for a local market: { lo, hi, label, size } or null when none applies.
+  function localBand(market, industryKey, ebitdaLocal) {
+    if (market === 'uk') {
+      const b = B.UK_SME_BANDS[industryKey];
+      if (!b) return null;
+      const t = interp(ebitdaLocal, [[B.UK_BAND_SPLIT[0], 0], [B.UK_BAND_SPLIT[1], 1]]);
+      return {
+        lo: b.small[0] + (b.large[0] - b.small[0]) * t,
+        hi: b.small[1] + (b.large[1] - b.small[1]) * t,
+        label: b.sector,
+        size: t <= 0 ? 'under £1m EBITDA' : t >= 1 ? '£1m+ EBITDA' : 'around £1m EBITDA',
+      };
+    }
+    if (market === 'fr') {
+      const b = B.FR_SME_BANDS[industryKey];
+      if (b) return { lo: b.band[0], hi: b.band[1], label: b.sector, size: 'all sizes' };
+      const tiers = B.FR_SIZE_BANDS;
+      return {
+        lo: interp(ebitdaLocal, tiers.map(([x, l]) => [x, l])),
+        hi: interp(ebitdaLocal, tiers.map(([x, , h]) => [x, h])),
+        label: 'PME françaises, par taille',
+        size: ebitdaLocal < 500000 ? 'TPE, EBE under €500K' : ebitdaLocal < 1500000 ? 'petite PME, €500K–€1.5M' : 'moyenne PME, €1.5M+',
+      };
+    }
+    return null;
+  }
+
   /**
    * @param {object} input
    *   industry        key from SME_INDUSTRIES
@@ -366,9 +393,9 @@
    *   drivers         { concentration: 'lt10', ... }
    *   riskFree, erp, growthRate, taxRate (all in %, optional)
    *   sbaRate %, sbaYears, dscr, downPayment % (optional)
-   *   market          'us' (default) or 'uk' (adds the UK sector range)
+   *   market          'us' (default), 'uk' or 'fr' (adds that market's range)
    *   fxPerUsd        display-currency units per USD
-   *   gbpPerUsd       pounds per USD, to place EBITDA in the UK £1m band (optional)
+   *   localPerUsd     local-market currency units per USD, for its size bands (optional)
    */
   function valueSme(input) {
     const fx = num(input.fxPerUsd, 1) > 0 ? num(input.fxPerUsd, 1) : 1;
@@ -479,33 +506,33 @@
       ]));
     }
 
-    // UK sector range on adjusted EBITDA; value drivers set the position inside the band.
-    const market = input.market === 'uk' ? 'uk' : 'us';
-    const band = B.UK_SME_BANDS[ind.key];
-    if (market !== 'uk') {
-      methods.push(skipped('uk', 'UK sector range', 'Used when the business is in the UK.'));
-    } else if (!band) {
-      methods.push(skipped('uk', 'UK sector range', 'No UK sector range published for this industry.'));
-      notes.push('No UK sector range covers this industry, so the estimate rests on US deal multiples only.');
-    } else if (ebitda <= 0) {
-      methods.push(skipped('uk', 'UK sector range', 'Needs positive adjusted EBITDA.'));
+    // Local market range (UK, France) on adjusted EBITDA; value drivers set the position inside it.
+    const marketDef = B.SME_MARKETS.find((m) => m.key === input.market && m.currency);
+    const market = marketDef ? marketDef.key : 'us';
+    if (!marketDef) {
+      methods.push(skipped('local', 'Local market range', 'Used for UK and French businesses.'));
     } else {
-      const gbp = num(input.gbpPerUsd, (B.CURRENCIES.find((c) => c.code === 'GBP') || { perUsd: 0.75 }).perUsd);
-      const ebitdaGbp = ebitdaUsd * gbp;
-      const t = interp(ebitdaGbp, [[B.UK_BAND_SPLIT[0], 0], [B.UK_BAND_SPLIT[1], 1]]);
-      const lo = band.small[0] + (band.large[0] - band.small[0]) * t;
-      const hi = band.small[1] + (band.large[1] - band.small[1]) * t;
-      const pos = clamp(0.5 + driverAdj, 0, 1);
-      const mult = lo + (hi - lo) * pos;
-      methods.push({
-        key: 'uk', label: 'UK sector range', value: ebitda * mult, low: ebitda * lo, high: ebitda * hi, weight: 0.6,
-        detail: [
-          { label: band.sector, value: `${lo.toFixed(1)}x–${hi.toFixed(1)}x` },
-          { label: 'Band', value: t <= 0 ? 'under £1m EBITDA' : t >= 1 ? '£1m+ EBITDA' : 'around £1m EBITDA' },
-          { label: 'Position from value drivers', value: `${Math.round(pos * 100)}% of the band` },
-          { label: 'Applied multiple', value: `${mult.toFixed(2)}x adjusted EBITDA` },
-        ],
-      });
+      const cur = B.CURRENCIES.find((c) => c.code === marketDef.currency);
+      const localPerUsd = num(input.localPerUsd, cur ? cur.perUsd : 1);
+      const band = localBand(market, ind.key, ebitdaUsd * localPerUsd);
+      if (!band) {
+        methods.push(skipped('local', marketDef.methodLabel, `No ${marketDef.country} sector range published for this industry.`));
+        notes.push(`No ${marketDef.country} sector range covers this industry, so the estimate rests on US deal multiples only.`);
+      } else if (ebitda <= 0) {
+        methods.push(skipped('local', marketDef.methodLabel, 'Needs positive adjusted EBITDA.'));
+      } else {
+        const pos = clamp(0.5 + driverAdj, 0, 1);
+        const mult = band.lo + (band.hi - band.lo) * pos;
+        methods.push({
+          key: 'local', label: marketDef.methodLabel, value: ebitda * mult, low: ebitda * band.lo, high: ebitda * band.hi, weight: 0.6,
+          detail: [
+            { label: band.label, value: `${band.lo.toFixed(1)}x–${band.hi.toFixed(1)}x` },
+            { label: 'Band', value: band.size },
+            { label: 'Position from value drivers', value: `${Math.round(pos * 100)}% of the band` },
+            { label: 'Applied multiple', value: `${mult.toFixed(2)}x adjusted EBITDA` },
+          ],
+        });
+      }
     }
 
     let range = blend(methods);
@@ -573,6 +600,7 @@
     blend,
     vcMethod,
     techMultiple,
+    localBand,
     valueStartup,
     valueTech,
     valueSme,

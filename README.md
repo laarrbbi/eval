@@ -6,9 +6,9 @@ Three valuation calculators in one page, priced with 2026 market data:
 |---|---|---|
 | **Early-stage startup** | Pre-revenue companies raising money | Scorecard, Berkus, risk factor summation, venture capital method |
 | **Tech startup** | SaaS, AI, marketplace, app and other tech companies with revenue, for a sale or a funding round | Adjusted revenue multiple from 2026 private SaaS deals, owner-earnings multiple for small software businesses, venture capital method |
-| **Small & medium business** | Shops, trades, restaurants, services, manufacturers being sold, in the US or the UK | Industry SDE or EBITDA multiple with seven value drivers, UK sector ranges for UK businesses, capitalised earnings, revenue multiple, asset floor, bank-financing check |
+| **Small & medium business** | Shops, trades, restaurants, services, manufacturers being sold, in the US, the UK or France | Industry SDE or EBITDA multiple with seven value drivers, local adviser ranges for UK and French businesses, capitalised earnings, revenue multiple, asset floor, bank-financing check |
 
-Each valuator shows a blended estimate, a likely range, a football-field chart of every method, the working behind each method, and warnings (for example, when a price is above what a bank will lend a buyer).
+Each valuator shows a blended estimate, a likely range, a football-field chart of every method, the working behind each method, and warnings (for example, when a price is above what a bank will lend a buyer). **Copy summary** puts the result, key inputs and method breakdown on the clipboard as plain text, ready to paste into an email to a buyer, broker or adviser.
 
 The data and every source are in [RESEARCH.md](RESEARCH.md) and on the app's **Market data** tab.
 
@@ -57,6 +57,6 @@ All benchmarks live in `src/benchmarks.js`. When BizBuySell, SEG, Carta or Peppe
 
 ## Limits
 
-- Benchmarks are mostly US deal data. For UK businesses the SME valuator adds UK sector ranges on adjusted EBITDA (adviser guidance, not deal data). Startup baselines are offered for the US, Europe and the UK; elsewhere, type your own.
+- Benchmarks are mostly US deal data. For UK and French businesses the SME valuator adds local ranges on adjusted EBITDA (adviser guidance, not deal data). Startup baselines are offered for the US, Europe and the UK; elsewhere, type your own.
 - Several 2026 figures come from broker and advisor summaries of paywalled reports. RESEARCH.md marks which.
 - This is a planning tool, not a formal appraisal. Have a qualified valuer or broker review any figure before relying on it.

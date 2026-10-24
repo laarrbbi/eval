@@ -251,10 +251,10 @@ test('every SME industry produces a positive estimate', () => {
 /* ------------------------------- UK ------------------------------- */
 
 test('UK: sector range is added for UK businesses and sits inside the band', () => {
-  const us = V.valueSme({ ...mainStreet, fxPerUsd: 0.75, gbpPerUsd: 0.75 });
-  const uk = V.valueSme({ ...mainStreet, market: 'uk', fxPerUsd: 0.75, gbpPerUsd: 0.75 });
-  assert.ok(us.methods.find((m) => m.key === 'uk').skipped);
-  const m = uk.methods.find((x) => x.key === 'uk');
+  const us = V.valueSme({ ...mainStreet, fxPerUsd: 0.75, localPerUsd: 0.75 });
+  const uk = V.valueSme({ ...mainStreet, market: 'uk', fxPerUsd: 0.75, localPerUsd: 0.75 });
+  assert.ok(us.methods.find((m) => m.key === 'local').skipped);
+  const m = uk.methods.find((x) => x.key === 'local');
   assert.ok(!m.skipped && m.share > 0.3);
   // Services maps to facilities management and cleaning: 3.0x-5.0x under £1m; typical drivers sit mid-band.
   close(m.value, 100000 * 4.0);
@@ -263,8 +263,8 @@ test('UK: sector range is added for UK businesses and sits inside the band', () 
 });
 
 test('UK: bands re-rate above £1m adjusted EBITDA', () => {
-  const base = { industry: 'manufacturing', pretaxProfit: 2000000, ownerComp: 0, managerSalary: 0, market: 'uk', fxPerUsd: 0.75, gbpPerUsd: 0.75 };
-  const m = V.valueSme(base).methods.find((x) => x.key === 'uk');
+  const base = { industry: 'manufacturing', pretaxProfit: 2000000, ownerComp: 0, managerSalary: 0, market: 'uk', fxPerUsd: 0.75, localPerUsd: 0.75 };
+  const m = V.valueSme(base).methods.find((x) => x.key === 'local');
   close(m.low, 2000000 * 4.5);
   close(m.high, 2000000 * 6.5);
 });
@@ -272,13 +272,13 @@ test('UK: bands re-rate above £1m adjusted EBITDA', () => {
 test('UK: value drivers move the position inside the band', () => {
   const good = V.valueSme({ ...mainStreet, market: 'uk', drivers: { owner: 'runs', recurring: 'high' } });
   const bad = V.valueSme({ ...mainStreet, market: 'uk', drivers: { owner: 'is', records: 'basic' } });
-  const val = (r) => r.methods.find((x) => x.key === 'uk').value;
+  const val = (r) => r.methods.find((x) => x.key === 'local').value;
   assert.ok(val(good) > val(bad));
 });
 
 test('UK: industries without a UK range fall back to US multiples with a note', () => {
   const r = V.valueSme({ ...mainStreet, industry: 'restaurants', market: 'uk' });
-  assert.ok(r.methods.find((x) => x.key === 'uk').skipped);
+  assert.ok(r.methods.find((x) => x.key === 'local').skipped);
   assert.ok(r.notes.some((n) => n.includes('No UK sector range')));
   assert.ok(r.mid > 0);
 });
@@ -287,4 +287,29 @@ test('benchmarks: every UK band maps to a known industry and the US baseline mat
   for (const key of Object.keys(B.UK_SME_BANDS)) assert.ok(B.SME_INDUSTRIES.some((i) => i.key === key), key);
   const us = B.STARTUP_MARKETS.find((m) => m.key === 'usVc');
   assert.equal(us.seed, B.STAGE_PREMONEY.seed.value);
+});
+
+/* ------------------------------ France ------------------------------ */
+
+test('France: sector range applies where sources give one', () => {
+  const r = V.valueSme({ ...mainStreet, industry: 'construction', market: 'fr', fxPerUsd: 0.86, localPerUsd: 0.86 });
+  const m = r.methods.find((x) => x.key === 'local');
+  assert.equal(m.label, 'France SME range');
+  close(m.low, 100000 * 3.0);
+  close(m.high, 100000 * 5.0);
+});
+
+test('France: other industries use the TPE / PME size tiers', () => {
+  const tpe = V.localBand('fr', 'health', 200000);
+  close(tpe.lo, 3.8);
+  close(tpe.hi, 4.8);
+  const pme = V.localBand('fr', 'health', 3250000);
+  close(pme.lo, 5.5);
+  close(pme.hi, 7.2);
+  const mid = V.localBand('fr', 'health', 1000000);
+  close(mid.lo, 4.5);
+});
+
+test('France: every French band maps to a known industry', () => {
+  for (const key of Object.keys(B.FR_SME_BANDS)) assert.ok(B.SME_INDUSTRIES.some((i) => i.key === key), key);
 });

@@ -18,6 +18,7 @@
     dirty: { startup: false, tech: false, sme: false },
     open: { startup: new Set(), tech: new Set(), sme: new Set() },
     results: {},
+    summaries: {},
   };
 
   /* ------------------------------ helpers ------------------------------ */
@@ -208,7 +209,7 @@
           {
             id: 'sm-market', kind: 'select', label: 'Where the business is',
             options: B.SME_MARKETS.map((m) => ({ value: m.key, label: m.label })), default: 'us',
-            help: 'United Kingdom adds published UK sector ranges on adjusted EBITDA.',
+            help: 'United Kingdom and France add local adviser ranges on adjusted EBITDA.',
           },
         ],
       },
@@ -571,6 +572,12 @@
         { label: 'Market baseline', value: money(r.baseline), note: $('#st-market').selectedOptions[0].textContent },
       ] : [],
       refs: r.baseline > 0 ? [{ label: 'Market baseline', value: r.baseline }] : [],
+      facts: [
+        ['Compared with', $('#st-market').selectedOptions[0].textContent],
+        ['Stage', $('#st-stage').selectedOptions[0].textContent],
+        ['Market baseline', money(r.baseline)],
+        ['Raising', money(r.raise)],
+      ],
       foot: 'Four methods weighted equally. Pre-revenue valuations are negotiated; use the range to set your SAFE cap or priced-round ask.',
     });
   }
@@ -634,6 +641,13 @@
       empty: 'Enter annual revenue to see a valuation.',
       kpis,
       refs,
+      facts: [
+        ['Business model', model.label],
+        ['Annual recurring revenue', money(r.arr)],
+        ['Growth', `${trim(v['tc-growth'] || 0, 1)}%`],
+        ['Net revenue retention', `${trim(v['tc-nrr'] || 0, 1)}%`],
+        ['Purpose', purpose === 'raise' ? 'Raising a round' : 'Selling the company'],
+      ],
       foot: purpose === 'raise'
         ? 'Pre-money equity value, assuming no debt. Rounds in hot sectors, AI especially, can price well above this; check the stage medians on the Market data tab.'
         : 'Enterprise value is cash-free and debt-free. Add your cash and subtract debt to get the price for the shares.',
@@ -643,6 +657,7 @@
   function computeSme() {
     const v = readForm('sme');
     const drivers = Object.fromEntries(B.SME_DRIVERS.map((d) => [d.key, v[`sm-d-${d.key}`]]));
+    const marketDef = B.SME_MARKETS.find((m) => m.key === v['sm-market']) || B.SME_MARKETS[0];
     const r = V.valueSme({
       industry: v['sm-industry'],
       revenue: v['sm-revenue'],
@@ -668,12 +683,12 @@
       downPayment: v['sm-down'],
       market: v['sm-market'],
       fxPerUsd: state.fx,
-      gbpPerUsd: rateOf('GBP'),
+      localPerUsd: marketDef.currency ? rateOf(marketDef.currency) : undefined,
     });
     state.results.sme = r;
 
-    const ukBand = B.UK_SME_BANDS[r.industry.key];
-    setMeta('sm-business', r.market === 'uk' ? (ukBand ? `UK sector: ${ukBand.sector}` : 'no UK sector range') : '');
+    const local = r.methods.find((m) => m.key === 'local');
+    setMeta('sm-business', !marketDef.currency ? '' : local && !local.skipped ? `${marketDef.label}: ${local.detail[0].label}` : `no ${marketDef.country} sector range`);
     setMeta('sm-earnings', `SDE ${money(r.sde)} · EBITDA ${money(r.ebitda)}`);
     setMeta('sm-drivers', `${r.driverAdj >= 0 ? '+' : '−'}${Math.round(Math.abs(r.driverAdj) * 100)}% on the multiple`);
 
@@ -688,7 +703,7 @@
           label: 'Bank-financeable price', value: money(r.financeable),
           note: overLoan
             ? 'below your estimate: expect a seller note'
-            : r.market === 'uk' ? 'set your lender’s terms under Rates and financing' : `${trim(v['sm-sba'] || 10, 2)}% loan, ${trim(v['sm-down'] || 10, 1)}% down`,
+            : r.market !== 'us' ? 'set your lender’s terms under Rates and financing' : `${trim(v['sm-sba'] || 10, 2)}% loan, ${trim(v['sm-down'] || 10, 1)}% down`,
           warn: overLoan,
         });
         refs.push({ label: 'Bank-financeable price', value: r.financeable });
@@ -708,6 +723,14 @@
       kpis,
       refs,
       foot: 'Price for the business as a going concern: equipment, goodwill and, if ticked, inventory. Excludes property, cash and receivables. Typical time to sell: about 5 to 8 months (BizBuySell median 170 days in 2025).',
+      facts: [
+        ['Industry', r.industry.label],
+        ['Market', marketDef.label],
+        ['Revenue', money(v['sm-revenue'])],
+        ['Owner earnings (SDE)', money(r.sde)],
+        ['EBITDA after a market salary', money(r.ebitda)],
+        ['Value drivers', `${r.driverAdj >= 0 ? '+' : '−'}${Math.round(Math.abs(r.driverAdj) * 100)}% on the multiple`],
+      ],
     });
   }
 
@@ -733,9 +756,62 @@
       r.methods.length ? methodsList(tab, r) : null,
       r.notes.length ? h('ul', { class: 'notes' }, r.notes.map((n) => h('li', { text: n }))) : null,
       cfg.foot ? h('p', { class: 'sheet-foot', text: cfg.foot }) : null,
+      has ? copyControls(tab) : null,
     ];
+    state.summaries[tab] = has ? summaryText(tab, cfg) : '';
     $(`#sheet-${tab}`).replaceChildren(...parts.filter(Boolean));
     updateMobileTotal();
+  }
+
+  const TITLES = { startup: 'Early-stage startup valuation', tech: 'Tech startup valuation', sme: 'Business sale valuation' };
+
+  function summaryText(tab, cfg) {
+    const r = cfg.result;
+    const lines = [
+      `${TITLES[tab]} — Startup & SME Valuator, market data to October 2026`,
+      '',
+      ...(cfg.facts || []).map(([k, v]) => `${k}: ${v}`),
+      '',
+      `${cfg.label}: ${money(r.mid)}`,
+      `Likely range: ${money(r.low)} to ${money(r.high)}`,
+      ...cfg.kpis.map((k) => `${k.label}: ${k.value}${k.note ? ` (${k.note})` : ''}`),
+      '',
+      'Methods:',
+      ...r.methods.filter((m) => !m.skipped && m.share > 0)
+        .map((m) => `- ${m.label}: ${money(m.value)} (${pct(m.share)} weight, range ${money(m.low)} to ${money(m.high)})`),
+    ];
+    if (r.notes.length) lines.push('', 'Notes:', ...r.notes.map((n) => `- ${n}`));
+    lines.push('', 'Estimate for planning only, not a formal appraisal or financial advice.');
+    return lines.join('\n');
+  }
+
+  function copyControls(tab) {
+    const status = h('span', { class: 'copy-status', role: 'status' });
+    const showText = () => {
+      const area = h('textarea', { id: `${tab}-summary`, class: 'summary-text', readonly: true, rows: 12, 'aria-label': 'Valuation summary' });
+      area.value = state.summaries[tab];
+      const old = document.getElementById(`${tab}-summary`);
+      if (old) old.remove();
+      status.after(area);
+      area.focus();
+      area.select();
+      status.textContent = 'Select the text below and copy it.';
+    };
+    const btn = h('button', {
+      type: 'button', class: 'btn', id: `${tab}-copy`,
+      onclick: () => {
+        const text = state.summaries[tab];
+        try {
+          navigator.clipboard.writeText(text).then(
+            () => { status.textContent = 'Copied. Paste it into an email or a note.'; },
+            showText,
+          );
+        } catch (err) {
+          showText();
+        }
+      },
+    }, 'Copy summary');
+    return h('div', { class: 'sheet-actions' }, btn, status);
   }
 
   function footballField(r, refs) {
@@ -876,6 +952,16 @@
           b.sector, `${b.small[0]}–${b.small[1]}x`, `${b.large[0]}–${b.large[1]}x`, b.ours.join(', '), sourceLink('ukSme'),
         ]), [1, 2]));
 
+    const frRows = Object.entries(B.FR_SME_BANDS).map(([key, b]) => {
+      const ind = B.SME_INDUSTRIES.find((i) => i.key === key);
+      return [b.sector, `${b.band[0]}–${b.band[1]}x`, ind ? ind.label : key, sourceLink(b.source)];
+    });
+    const sizeNames = ['TPE, EBE under €500K', 'Petite PME, €500K–€1.5M', 'Moyenne PME, €1.5M–€5M'];
+    B.FR_SIZE_BANDS.forEach(([, lo, hi], i) => frRows.push([sizeNames[i], `${lo}–${hi}x`, 'All other industries, by size', sourceLink('frSize')]));
+    const fr = section('France small business ranges',
+      `Indicative ranges on normalised EBE (the French EBITDA) from French M&A advisers, 2026. Advisers reported an average of ${B.FR_MARKET.adviserAverageH2_2025}x in H2 2025, and most 2026 guides put a typical deal near ${B.FR_MARKET.typical2026}x. Software publishers trade at 8–15x and belong in the tech valuator.`,
+      table(['Segment', 'Range', 'Used for', 'Source'], frRows, [1]));
+
     const rounds = section('Startup funding rounds',
       'Medians for venture-backed companies. Angel and friends-and-family rounds price far lower, and AI companies far higher.',
       table(['Round', 'Valuation', 'Source'], B.ROUND_MEDIANS.map((m) => [m.stage, moneyIn(m.currency, m.value), sourceLink(m.source)]), [1]));
@@ -899,14 +985,14 @@
         h('tbody', null,
           h('tr', null, h('td', { text: 'Early-stage startup' }), h('td', { text: 'Scorecard (Payne), Berkus, risk factor summation and the venture capital method, weighted equally. All four are anchored on the median pre-money valuation of comparable funded startups.' })),
           h('tr', null, h('td', { text: 'Tech startup' }), h('td', { text: 'Revenue multiple from a growth curve fitted to 2026 private SaaS deals, adjusted for business model, scale, retention, gross margin, Rule of 40, concentration and runway. Under $1.5M ARR it blends in an owner-earnings multiple. For a funding round, the venture capital method carries 70% of the weight.' })),
-          h('tr', null, h('td', { text: 'Small & medium business' }), h('td', { text: 'Industry SDE multiple (60%), capitalised earnings with a build-up discount rate (25%) and an industry revenue multiple (15%). Above $0.5M EBITDA it shifts to size-adjusted EBITDA multiples. Seven value drivers move the multiple by up to −50% or +40%. For a UK business, the UK sector range on adjusted EBITDA is added with the same weight as the US multiple. Tangible assets set a floor; a bank-financing check shows what a buyer can borrow.' }))))));
+          h('tr', null, h('td', { text: 'Small & medium business' }), h('td', { text: 'Industry SDE multiple (60%), capitalised earnings with a build-up discount rate (25%) and an industry revenue multiple (15%). Above $0.5M EBITDA it shifts to size-adjusted EBITDA multiples. Seven value drivers move the multiple by up to −50% or +40%. For a UK or French business, that market’s adviser range on adjusted EBITDA is added with the same weight as the US multiple. Tangible assets set a floor; a bank-financing check shows what a buyer can borrow.' }))))));
 
     const sources = section('Sources', 'Several figures come from broker and advisor summaries of the original reports. Check the primary report before relying on any one number.',
       h('ol', { class: 'sources' }, Object.values(B.SOURCES).map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener', text: s.name })))));
 
     $('#data-root').replaceChildren(
       section('Why owners are selling now', null, why),
-      sme, ebitda, uk, tech, rounds, rates, methods, sources);
+      sme, ebitda, uk, fr, tech, rounds, rates, methods, sources);
   }
 
   /* ---------------------------------- boot -------------------------------- */
